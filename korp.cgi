@@ -38,8 +38,11 @@ MAX_KWIC_ROWS = 1000
 PARALLEL_THREADS = 6
 
 # The name of the MySQL database and table prefix
-DBNAME = ""
+DBNAME = "korp"
 DBTABLE = "relations"
+# Username and password for database access
+DBUSER = ""
+DBPASSWORD = ""
 
 ######################################################################
 # These variables should probably not need to be changed
@@ -791,8 +794,8 @@ def lemgram_count(form):
     sums = " + ".join("SUM(%s)" % counts[c] for c in count)
     
     conn = MySQLdb.connect(host = "localhost",
-                           user = "",
-                           passwd = "",
+                           user = DBUSER,
+                           passwd = DBPASSWORD,
                            db = DBNAME,
                            use_unicode = True,
                            charset = "utf8")
@@ -840,8 +843,8 @@ def relations(form):
     result = {}
 
     conn = MySQLdb.connect(host = "localhost",
-                           user = "",
-                           passwd = "",
+                           user = DBUSER,
+                           passwd = DBPASSWORD,
                            db = DBNAME,
                            use_unicode = True,
                            charset = "utf8")
@@ -862,7 +865,7 @@ def relations(form):
         for corpus in corpora:
             corpus_table = DBTABLE + "_" + corpus.upper()
             
-            cursor.execute(u"SELECT * FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = '" + DBNAME + "' AND TABLE_NAME = '" + corpus_table + "' AND COLUMN_NAME = 'wf'")
+            cursor.execute(u"SELECT * FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = 'lb_korp_sel' AND TABLE_NAME = '" + corpus_table + "' AND COLUMN_NAME = 'wf'")
             if len([x for x in cursor]) == 1:
                 selects.append(u"(SELECT " + columns + u", " + conn.string_literal(corpus.upper()) + u" as corpus FROM " + corpus_table + u" WHERE (head = " + lemgram_sql + u" OR dep = " + lemgram_sql + minfreqsql + u") AND wf = 0)")
             else:
@@ -963,9 +966,9 @@ def relations_sentences(form):
     querystarttime = time.time()
 
     conn = MySQLdb.connect(host = "localhost",
-                           user = "",
-                           passwd = "",
-                           db = "")
+                           user = DBUSER,
+                           passwd = DBPASSWORD,
+                           db = "lb_korp_sel")
     cursor = conn.cursor()
     selects = []
     
@@ -1147,11 +1150,10 @@ def runCQP(command, form, executable=CQP_EXECUTABLE, registry=CWB_REGISTRY, attr
         error = re.sub(r"^CQP Error: *", r"", error)
         error = re.sub(r" *(CQP Error:).*$", r"", error)
         # Ignore certain errors: 1) "show +attr" for unknown attr, 2) querying unknown structural attribute, 3) calculating statistics for empty results
-        if not (attr_ignore and "No such attribute:" in error) and not "is not defined for corpus" in error and not "cl->range && cl->size > 0" in error:
+        if not (attr_ignore and "No such attribute:" in error) and not "is not defined for corpus" in error and not "cl->range && cl->size > 0" in error and not "neither a positional/structural attribute" in error:
             raise CQPError(error)
     for line in reply.splitlines():
         # TODO: Current version of CQP can't handle extremely long sentences.
-        # When fixed, remove len() check and move the decode back to reply.decode(encoding, errors="ignore").splitlines()
         if line and len(line) < 32768:
             yield line.decode(encoding, errors="ignore")
 
@@ -1207,6 +1209,7 @@ def print_object(obj, form):
         print json.dumps(obj, separators=(",",":"))
     if callback: print ")",
     print
+
 
 if __name__ == "__main__":
     main()
