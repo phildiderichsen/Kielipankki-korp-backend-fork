@@ -2332,7 +2332,8 @@ def check_authentication(corpora):
         #print 'auth:', auth ## DEBUGGING
         authorized = auth.get('corpora', [])
         #print 'authorized:', authorized ## DEBUGGING
-        unauthorized = [ corpus for corpus in corpora
+        unauthorized = [ corpus for corpus_or_pair in corpora
+                         for corpus in corpus_or_pair.split('|')
                          if corpus in protected
                          and corpus not in authorized ]
         #print 'unauthorized:', unauthorized ## DEBUGGING
