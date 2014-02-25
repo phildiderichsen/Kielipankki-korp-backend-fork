@@ -2269,11 +2269,8 @@ def authenticate(_=None):
     remote_user = cgi.os.environ.get('REMOTE_USER')
     auth_header = cgi.os.environ.get('HTTP_AUTH_HEADER')
 
+    logging.debug("cgi.os.environ: %s", cgi.os.environ)
     if remote_user:
-        ## DEBUGGING
-        # with open('/v/korp/cgi-bin/log/ru_env.log', 'w+') as f:
-        #     f.write(repr(cgi.os.environ))
-
         # In which order should we check the affiliation variables?
         affiliation = (cgi.os.environ.get('HTTP_UNSCOPED_AFFILIATION') or
                        cgi.os.environ.get('HTTP_AFFILIATION') or '')
@@ -2305,6 +2302,7 @@ def authenticate(_=None):
     # Response contains username and corpora, or username=None
     return auth_response.get('permitted_resources', {})
 
+
 def check_authentication(corpora):
     """Raises an exception if any of the corpora are protected and the
     user is not authorized to access them (by AUTH_SERVER)."""
@@ -2324,19 +2322,17 @@ def check_authentication(corpora):
     cursor.close()
     conn.close()
 
-    #print 'corpora:', corpora ## DEBUGGING
-    #print 'protected:', protected ## DEBUGGING
+    logging.debug("check_auth: corpora: %s; protected: %s", corpora, protected)
 
     if protected:
         auth = authenticate()
-        #print 'auth:', auth ## DEBUGGING
         authorized = auth.get('corpora', [])
-        #print 'authorized:', authorized ## DEBUGGING
         unauthorized = [ corpus for corpus_or_pair in corpora
                          for corpus in corpus_or_pair.split('|')
                          if corpus in protected
                          and corpus not in authorized ]
-        #print 'unauthorized:', unauthorized ## DEBUGGING
+        logging.debug("check_auth: auth: %s; authorized: %s; unauthorized: %s",
+                      auth, authorized, unauthorized)
 
         if unauthorized:
             raise KorpAuthenticationError("You do not have access to the following corpora: %s" % ", ".join(unauthorized))
