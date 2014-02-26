@@ -109,7 +109,7 @@ KORP_VERSION = "2.3"
 
 # The available CGI commands; for each command there must be a function
 # with the same name, taking one argument (the CGI form)
-COMMANDS = "info query count relations relations_sentences lemgram_count timespan authenticate count_time optimize loglike".split()
+COMMANDS = "info query count relations relations_sentences lemgram_count timespan authenticate count_time optimize loglike query_download".split()
 
 def default_command(form):
     return "query" if "cqp" in form else "info"
@@ -165,10 +165,15 @@ def main():
     starttime = time.time()
 
     sys.stdout = os.fdopen(sys.stdout.fileno(), 'w', 0) # Open unbuffered stdout
-    print_header()
     
     # Convert form fields to regular dictionary
     form_raw = cgi.FieldStorage()
+    # Print the HTTP header unless command is query_download. The
+    # header is printed at this stage, so that also the HTTP OPTIONS
+    # command sees it.
+    if (not form_raw or "command" not in form_raw
+        or form_raw.getvalue("command") != "query_download"):
+        print_header()
     form = dict((field, form_raw.getvalue(field)) for field in form_raw.keys())
 
     # Configure logging
@@ -186,7 +191,9 @@ def main():
     RESTRICTED_SENTENCES_CORPORA_REGEXP = read_corpora_regexp_file(
         RESTRICTED_SENTENCES_CORPORA_FILE)
 
-    incremental = form.get("incremental", "").lower() == "true"
+    # A query_download cannot be incremental
+    incremental = (form.get("incremental", "").lower() == "true"
+                   and form.get("command") != "query_download")
     
     if incremental:
         print "{"
@@ -2018,6 +2025,119 @@ def relations_sentences(form):
 
 
 ################################################################################
+# QUERY_DOWNLOAD
+################################################################################
+
+def query_download(form):
+    """Perform a query and return the result in a downloadable format.
+
+    The required parameters are the same as for query.
+
+    The optional parameters:
+    - format: download format ("json", "csv", "tsv", ...)
+
+    For format FMT, the function calls the global function
+    make_download_content_FMT with the result returned by query() as
+    the argument. The function should return a triple (file content,
+    file MIME type, filename extension).
+    """
+
+    query_result = query(form)
+    result = {}
+    format_type = form.get("format", "json").lower()
+    result["type"] = format_type
+    content, content_type, filename_ext = \
+        globals()["make_download_content_" + format_type](query_result)
+    result["download_charset"] = "utf-8"
+    result["download_content"] = content.encode("utf-8")
+    result["download_content_type"] = content_type
+    result["download_filename"] = \
+        "korp_kwic_" + time.strftime("%Y%m%d%H%M%S") + filename_ext
+    return result
+
+
+def make_download_content_json(query_result):
+    """Convert query_result to JSON."""
+    return (json.dumps(query_result["kwic"], sort_keys=True, indent=4),
+            "application/json", ".json")
+
+
+def make_download_content_csv(query_result):
+    """Convert query_result to comma-separated-values format."""
+    return (format_download_content_delimited(query_result, delimiter=u",",
+                                              quote=u"\"", escape_quote=u"\"",
+                                              newline=u"\r\n"),
+            "text/csv", ".csv")
+
+
+def make_download_content_tsv(query_result):
+    """Convert query_result to tab-separated-values format."""
+    return (format_download_content_delimited(query_result, delimiter=u"\t",
+                                              quote=u"", escape_quote=u"",
+                                              newline=u"\r\n"),
+            "text/tsv", ".tsv")
+
+
+def format_download_content_delimited(query_result, **opts):
+    """Return query_result in a delimited format specified by opts."""
+    content = ""
+    for sentence in query_result["kwic"]:
+        content += format_sentence_delimited(sentence, **opts)
+    return content
+
+
+def format_sentence_delimited(sentence, **opts):
+    """Format a single delimited sentence with the delimiter options opts.
+
+    The result contains the following fields:
+    - corpus ID (in upper case)
+    - corpus position of the start of the Match
+    - tokens in left context, separated with spaces
+    - tokens in match, separated with spaces
+    - tokens in right context, separated with spaces
+    - for parallel corpora only, tokens in aligned sentence
+    """
+    # Match start and end positions in tokens
+    match_start = sentence["match"]["start"]
+    match_end = sentence["match"]["end"]
+    fields = [sentence["corpus"],
+              str(sentence["match"]["position"]),
+              format_sentence_tokens(sentence["tokens"][:match_start]),
+              format_sentence_tokens(sentence["tokens"][match_start:match_end]),
+              format_sentence_tokens(sentence["tokens"][match_end:])]
+    if "aligned" in sentence:
+        for align_key, tokens in sorted(sentence["aligned"].iteritems()):
+            fields.append(format_sentence_tokens(tokens))
+    return format_delimited_fields(fields, **opts)
+
+
+def format_sentence_tokens(tokens):
+    """Format the tokens of a single sentence."""
+    # Allow for None in word
+    return u" ".join(token.get("word", "") or "" for token in tokens)
+
+
+def format_delimited_fields(fields, **opts):
+    """Format fields according to the options in opts.
+
+    opts may contain the following keyword arguments:
+    - delim: field delimiter (default: ,)
+    - quote: quotes surrounding fields (default: ")
+    - escape_quote: string to precede a quote with in a field value to
+      escape it (default: ")
+    - newline: end-of-record string (default: \r\n)
+    """
+    delim = opts.get("delimiter", u",")
+    quote = opts.get("quote", u"\"")
+    escape_quote = opts.get("escape_quote", quote)
+    newline = opts.get("newline", u"\n")
+    return (delim.join((quote + field.replace(quote, escape_quote + quote)
+                        + quote)
+                       for field in fields)
+            + newline)
+
+
+################################################################################
 # Helper functions
 
 def parse_cqp(cqp):
@@ -2235,9 +2355,9 @@ def assert_key(key, form, regexp, required=False):
         raise ValueError("Value(s) for key %s do(es) not match /%s/: %s" % (key, pattern, value))
 
 
-def print_header():
+def print_header(content_type="application/json"):
     """Prints the JSON header."""
-    print "Content-Type: application/json"
+    print "Content-Type: " + content_type
     print "Access-Control-Allow-Origin: *"
     print "Access-Control-Allow-Methods: GET, POST"
     print "Access-Control-Allow-Headers: Authorization"
@@ -2249,6 +2369,10 @@ def print_object(obj, form):
     The CGI form can contain optional parameters 'callback' and 'indent'
     which change the output format.
     """
+    # Handle downloadable files separately (no JSON)
+    if form.get("command") == "query_download":
+        print_download_object(obj, form)
+        return
     callback = form.get("callback")
     if callback: print callback + "(",
     try:
@@ -2261,6 +2385,42 @@ def print_object(obj, form):
         out = out[1:-1] if form.get("incremental", "").lower() == "true" else out
         print out,
     if callback: print ")",
+
+
+def print_download_object(obj, form):
+    """Print the downloadable content obj["download_content"]."""
+    if "ERROR" in obj:
+        print_header("text/plain")
+        error = obj["ERROR"]
+        print "Error when trying to download results:"
+        print error["type"] + ": " + error["value"]
+        if "traceback" in error:
+            print error["traceback"]
+    else:
+        print_download_header(obj)
+        print obj["download_content"],
+
+
+def print_download_header(obj):
+    """Print header for the downloadable file in obj.
+
+    obj may contain the following keys affecting the output headers:
+    - download_content_type => Content-Type (default: text/plain)
+    - download_charset => Charset (default: utf-8)
+    - download_filename => Content-Disposition filename
+    - download_content => Length to Content-Length
+    """
+    charset = obj.get("download_charset", "utf-8")
+    print "Content-Type: " + obj.get("download_content_type", "text/plain")
+    print "Charset: " + charset
+    # Default filename 
+    print ("Content-Disposition: attachment; filename="
+           + obj.get("download_filename", "korp_kwic"))
+    print "Content-Length: " + str(len(obj["download_content"]))
+    print "Access-Control-Allow-Origin: *"
+    print "Access-Control-Allow-Methods: GET, POST"
+    print "Access-Control-Allow-Headers: Authorization"
+    print
 
 
 def authenticate(_=None):
