@@ -101,6 +101,11 @@ LOG_FILE = "/v/korp/log/korp-cgi.log"
 # logging.CRITICAL to disable logging
 LOG_LEVEL = logging.INFO
 
+# Whether the corpora in the results should be sorted alphabetically;
+# if not, the results are in the order specified by the form parameter
+# "corpus".
+SORT_CORPORA = False
+
 ######################################################################
 # These variables should probably not need to be changed
 
@@ -258,7 +263,7 @@ def corpus_info(form):
     corpora = form.get("corpus")
     if isinstance(corpora, basestring):
         corpora = corpora.split(QUERY_DELIM)
-    corpora = sorted(set(corpora))
+    corpora = uniquify_corpora(corpora)
     
     result = {"corpora": {}}
     total_size = 0
@@ -354,7 +359,7 @@ def query(form):
     corpora = form.get("corpus")
     if isinstance(corpora, basestring):
         corpora = corpora.split(QUERY_DELIM)
-    corpora = sorted(set(corpora))
+    corpora = uniquify_corpora(corpora)
     
     check_authentication(corpora)
 
@@ -1903,7 +1908,7 @@ def relations_sentences(form):
     corpora = form.get("corpus")
     if isinstance(corpora, basestring):
         corpora = corpora.split(QUERY_DELIM)
-    corpora = sorted(set(corpora))
+    corpora = uniquify_corpora(corpora)
     
     check_authentication(corpora)
     
@@ -2156,6 +2161,27 @@ def read_attributes(lines):
         (typ, name, _rest) = (line + " X").split(None, 2)
         attrs[typ[0]].append(name)
     return attrs
+
+
+def uniquify_corpora(corpora):
+    """Uniquify a list of corpora, either preserving order or sorted."""
+    if SORT_CORPORA:
+        # The original version
+        return sorted(set(corpora))
+    else:
+        return uniquify_list(corpora)
+
+
+def uniquify_list(lst):
+    """Uniquify a list, preserving order."""
+    # Source:
+    # http://stackoverflow.com/questions/480214/how-do-you-remove-duplicates-from-a-list-in-python-whilst-preserving-order
+    # In Python 2.7+, we could use collections.OrderedDict.
+    seen = set()
+    # Avoid attribute lookup in the loop
+    seen_add = seen.add
+    # seen.add ony has a side-effect and returns None
+    return [elem for elem in lst if elem not in seen and not seen_add(elem)]
 
 
 def replace_substrings(s, mapping):
