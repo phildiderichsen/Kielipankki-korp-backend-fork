@@ -812,6 +812,8 @@ def query_parse_lines(corpus, lines, attrs, shown, shown_structs):
                 # Structural attrs can be split in the middle (<s_n 123>),
                 # so we need to finish the structure here
                 struct_id, word = word.split(">", 1)
+                if ENCODED_SPECIAL_CHARS:
+                    struct_id = decode_special_chars(struct_id)
                 structs["open"].append(struct + " " + struct_id)
                 struct = None
 
