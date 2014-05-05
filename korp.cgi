@@ -878,19 +878,30 @@ def query_parse_lines(corpus, lines, attrs, shown, shown_structs):
             kwic.append(kwic_row)
 
     if ENCODED_SPECIAL_CHARS:
-        # Decode encoded special characters in p-attribute values
+
+        def decode_attr_values(attrs, exclude=None):
+            # Decode encoded special characters in the attributes of
+            # attrs (a dict), except those whose names are listed in
+            # exclude.
+            exclude = exclude or []
+            for attr, val in attrs.iteritems():
+                if attr not in exclude and val is not None:
+                    attrs[attr] = decode_special_chars(val)
+
         for kwic_row in kwic:
+            # Decode encoded special characters in p-attribute values
             for token in kwic_row["tokens"]:
-                for (attr, val) in token.iteritems():
-                    if attr != "structs" and val is not None:
-                        token[attr] = decode_special_chars(val)
+                decode_attr_values(token, exclude=["structs"])
+            # Also in aligned attributes
+            if "aligned" in kwic_row:
+                for tokens in kwic_row["aligned"].itervalues():
+                    for token in tokens:
+                        decode_attr_values(token, exclude=["structs"])
             # The special characters would seem to work as such in
             # s-attribute values, but decode them because they have
             # been encoded in queries.
             if "structs" in kwic_row:
-                for (struct, val) in kwic_row["structs"].iteritems():
-                    if val is not None:
-                        kwic_row["structs"][struct] = decode_special_chars(val)
+                decode_attr_values(kwic_row["structs"])
 
     return kwic
 
