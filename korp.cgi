@@ -106,6 +106,10 @@ LOG_LEVEL = logging.INFO
 # "corpus".
 SORT_CORPORA = False
 
+# Whether the "info" command for corpora should retrieve extra
+# information from the database table "corpus_info".
+DB_HAS_CORPUSINFO = True
+
 ######################################################################
 # These variables should probably not need to be changed
 
@@ -302,12 +306,35 @@ def corpus_info(form):
                     total_sentences += int(infoval)
 
         result["corpora"][corpus] = {"attrs": attrs, "info": info}
+
+    if DB_HAS_CORPUSINFO:
+        add_corpusinfo_from_database(result, corpora)
     
     result["total_size"] = total_size
     result["total_sentences"] = total_sentences
     
     if "debug" in form:
         result["DEBUG"] = {"cmd": cmd}
+    return result
+
+
+def add_corpusinfo_from_database(result, corpora):
+    """Add extra info items from database to the info of corpora in result."""
+    conn = MySQLdb.connect(host = "localhost",
+                           user = DBUSER,
+                           passwd = DBPASSWORD,
+                           db = DBNAME,
+                           use_unicode = True,
+                           charset = "utf8")
+    cursor = conn.cursor()
+    sql = ("SELECT `corpus`, `key`, `value` FROM corpus_info WHERE corpus IN (%s)"
+           % ", ".join("%s" % conn.escape(c) for c in corpora))
+    cursor.execute(sql)
+    for row in cursor:
+        corpus, key, value = row
+        result["corpora"][corpus]["info"][key] = value
+    cursor.close()
+    conn.close()
     return result
 
 
