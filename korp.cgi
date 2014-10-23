@@ -190,7 +190,8 @@ def main():
     # Log remote IP address and CGI parameters
     logging.info('IP: %s', cgi.os.environ.get('REMOTE_ADDR'))
     logging.info('Params: %s', form)
-    
+    logging.debug('Env: %s', cgi.os.environ)
+
     global RESTRICTED_SENTENCES_CORPORA_REGEXP
     RESTRICTED_SENTENCES_CORPORA_REGEXP = read_corpora_regexp_file(
         RESTRICTED_SENTENCES_CORPORA_FILE)
@@ -2248,7 +2249,10 @@ def encode_special_chars_in_query(cqp):
     """Encode the special characters in the double-quoted substrings
     of the CQP query cqp.
     """
-    return re.sub(r'("(?:[^\\"]|\\.)+")',
+    # Allow empty strings within double quotes, so that the regexp
+    # does not match from an ending double quote of a quoted empty
+    # string to the next double quote.
+    return re.sub(r'("(?:[^\\"]|\\.)*")',
                   lambda mo: encode_special_chars(mo.group(0)), cqp)
 
 
