@@ -1511,6 +1511,10 @@ def lemgram_count(form):
                            db = DBNAME,
                            use_unicode = True,
                            charset = "utf8")
+    # Get Unicode objects even with collation utf8_bin; see
+    # <http://stackoverflow.com/questions/9522413/mysql-python-collation-issue-how-to-force-unicode-datatype>
+    conn.converter[MySQLdb.constants.FIELD_TYPE.VAR_STRING] = [
+        (None, conn.string_decoder)]
     cursor = conn.cursor()
     
     lemgram_sql = " lemgram IN (%s)" % "%s" % ", ".join(conn.escape(l).decode("utf-8") for l in lemgram)
@@ -1781,6 +1785,10 @@ def relations(form):
                            db = DBNAME,
                            use_unicode = True,
                            charset = "utf8")
+    # Get Unicode objects even with collation utf8_bin; see
+    # <http://stackoverflow.com/questions/9522413/mysql-python-collation-issue-how-to-force-unicode-datatype>
+    conn.converter[MySQLdb.constants.FIELD_TYPE.VAR_STRING] = [
+        (None, conn.string_decoder)]
     cursor = conn.cursor()
     cursor.execute("SET @@session.long_query_time = 1000;")
     
@@ -1971,6 +1979,10 @@ def relations_sentences(form):
                            user = DBUSER,
                            passwd = DBPASSWORD,
                            db = DBNAME)
+    # Get Unicode objects even with collation utf8_bin; see
+    # <http://stackoverflow.com/questions/9522413/mysql-python-collation-issue-how-to-force-unicode-datatype>
+    conn.converter[MySQLdb.constants.FIELD_TYPE.VAR_STRING] = [
+        (None, conn.string_decoder)]
     cursor = conn.cursor()
     cursor.execute("SET @@session.long_query_time = 1000;")
     selects = []

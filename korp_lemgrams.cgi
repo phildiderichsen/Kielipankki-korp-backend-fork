@@ -19,11 +19,11 @@ DBPASSWORD = ""
 def main():
     starttime = time.time()
     print_header()
-    
+
     # Convert form fields to regular dictionary
     form_raw = cgi.FieldStorage()
     form = dict((field, form_raw.getvalue(field)) for field in form_raw.keys())
-    
+
     wf = form.get("wf")
     corpora = form.get("corpus")
     if corpora:
@@ -53,6 +53,10 @@ def get_lemgrams(wf, corpora):
                            db = DBNAME,
                            use_unicode = True,
                            charset = "utf8")
+    # Get Unicode objects even with collation utf8_bin; see
+    # <http://stackoverflow.com/questions/9522413/mysql-python-collation-issue-how-to-force-unicode-datatype>
+    conn.converter[MySQLdb.constants.FIELD_TYPE.VAR_STRING] = [
+        (None, conn.string_decoder)]
     cursor = conn.cursor()
     result = query_lemgrams(cursor, wf, corpora, limit=20)[:10]
     cursor.close()
@@ -67,13 +71,14 @@ def query_lemgrams(cursor, wf, corpora, limit):
     modcase = (lambda w: w.lower()) if wf.islower() else (lambda w: w)
     for row in cursor:
         # We need this check here, since a search for "hår" also
-        # returns "här" and "har". We could also specify "collate
+        # returns "här" and "har". (Does it still do when we use
+        # collation utf8_bin?) We could also specify "collate
         # 'utf8_swedish_ci'" in the SQL query but it seems to slow
         # down the query significantly.
         if modcase(row[0].encode("utf-8")).startswith(wf):
             result.append(row[0])
     return result
-    
+
 
 def make_lemgram_query(wf, corpora, limit=10):
     sql = make_lemgram_query_corpora(wf, corpora, limit)
