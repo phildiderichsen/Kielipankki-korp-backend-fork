@@ -187,10 +187,6 @@ def main():
                                 ' %(levelname)s @ %(asctime)s]' +
                                 ' %(message)s'),
                         level=loglevel)
-    # Log remote IP address and CGI parameters
-    logging.info('IP: %s', cgi.os.environ.get('REMOTE_ADDR'))
-    logging.info('Params: %s', form)
-    logging.debug('Env: %s', cgi.os.environ)
 
     global RESTRICTED_SENTENCES_CORPORA_REGEXP
     RESTRICTED_SENTENCES_CORPORA_REGEXP = read_corpora_regexp_file(
@@ -204,6 +200,16 @@ def main():
     command = form.get("command")
     if not command:
         command = default_command(form)
+
+    # Log remote IP address, HTTP refer(r)er and CGI parameters
+    logging.info('IP: %s', cgi.os.environ.get('REMOTE_ADDR'))
+    logging.info('User-agent: %s', cgi.os.environ.get('HTTP_USER_AGENT'))
+    logging.info('Referer: %s', cgi.os.environ.get('HTTP_REFERER'))
+    logging.info('Script: %s', cgi.os.environ.get('SCRIPT_NAME'))
+    logging.info('Command: %s', command)
+    logging.info('Params: %s', form)
+    logging.debug('Env: %s', cgi.os.environ)
+
     try:
         if command not in COMMANDS:
             raise ValueError("'%s' is not a permitted command, try these instead: '%s'" % (command, "', '".join(COMMANDS)))
