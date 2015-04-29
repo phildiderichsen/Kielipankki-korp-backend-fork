@@ -21,12 +21,19 @@ import cgi
 import json
 import MySQLdb
 
+import logging
+import os
+
 import sys
 sys.stderr = sys.stdout
 
 AUTH_DBNAME = "korp_auth"
 AUTH_DBUSER = "korp"
 AUTH_DBPASSWORD = ""
+
+LOG_FILE = "/v/korp/log/korp-auth.log"
+LOG_LEVEL = logging.INFO    # in non-logging version, WARNING
+
 
 def main():
     print_header()
@@ -136,12 +143,10 @@ def print_header():
     print()
 
 if __name__ == '__main__':
-    import logging
-    import os
-    logging.basicConfig(filename='/dev/null',
+    logging.basicConfig(filename=LOG_FILE,
                         format=('[auth ' + str(os.getpid()) +
                                 ' @ %(asctime)s] %(message)s'),
-                        level=logging.WARNING) # in logging version, INFO
+                        level=LOG_LEVEL)
 
     logging.info('entering auth.cgi')
     main()
