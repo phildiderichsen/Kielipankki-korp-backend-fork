@@ -48,10 +48,13 @@ def main():
     cursor = conn.cursor()
 
     authenticated, academic = False, False
+    top_domain = ''
     entitlement = ''
 
     if 'remote_user' in form:
         username = form['remote_user']
+        # Get the top-level-domain for checking ACA-Fi
+        top_domain = username.rpartition('.')[-1]
         authenticated = True
         # entitlement contains LBR REMS IDs (URNs) as a semicolon separated list. 
         entitlement = form['entitlement']
@@ -101,13 +104,15 @@ def main():
         # The query with parameters filled in. This is easier to debug.
         sql='''
         select corpus from auth_license
-        where license = 'ACA' and %s = True
+        where %s = True and (license = 'ACA'
+                             or (license = 'ACA-Fi' and '%s' = 'fi'))
         union distinct
         select corpus from auth_allow
         where person = '%s'
         union distinct
         select corpus from auth_lbr_map
-        where lbr_id IN (%s); ''' % (academic, username, in_parameters)
+        where lbr_id IN (%s); ''' % (academic, top_domain, username,
+                                     in_parameters)
 
         # finally fill in entitlement values
         sql = sql % entitlement
