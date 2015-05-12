@@ -3529,7 +3529,7 @@ def get_protected_corpora():
         cursor = conn.cursor()
         cursor.execute('''
         select corpus from auth_license
-        where license = 'ACA' or license = 'RES'
+        where license like 'ACA%' or license = 'RES'
         ''')
         protected = [ corpus for corpus, in cursor ]
         cursor.close()
