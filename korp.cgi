@@ -2155,6 +2155,7 @@ def relations(form):
     # Get available tables
     cursor.execute("SHOW TABLES LIKE '" + config.DBTABLE + "_%';")
     tables = set(x[0] for x in cursor)
+    logging.debug("tables = %s", tables)
     # Filter out corpora which doesn't exist in database
     corpora = filter(lambda x: config.DBTABLE + "_" + x.upper() in tables, corpora)
     if not corpora:
@@ -2205,6 +2206,7 @@ def relations(form):
         print '"progress_corpora": [%s],' % ('"' + '", "'.join(corpora) + '"' if corpora else "")
         progress_count = 0
         for sql in selects:
+            logging.debug("sql = %s", sql[1])
             cursor.execute(sql[1])
             cursor_result.extend(list(cursor))
             if sql[0]:
@@ -2212,6 +2214,7 @@ def relations(form):
                 progress_count += 1
     else:    
         sql = u" UNION ALL ".join(x[1] for x in selects)
+        logging.debug("sql = %s", sql)
         cursor.execute(sql)
         cursor_result = cursor
     
@@ -2246,6 +2249,8 @@ def relations(form):
     
     sortedrels = sorted(rels.items(), key=lambda x: (x[0][1], x[1][sortby]), reverse=True)
     
+    logging.debug("sortedrels = %s", sortedrels)
+
     for rel in sortedrels:
         counter.setdefault((rel[0][1], "h"), 0)
         counter.setdefault((rel[0][1], "d"), 0)
