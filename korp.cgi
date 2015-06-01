@@ -2883,6 +2883,9 @@ def names_sentences(form):
      - start, end: which result rows that should be returned
      - show
      - show_struct
+     - cqp
+     - defaultwithin, within
+     - default_nameswithin, nameswithin
     """
 
     from copy import deepcopy
@@ -2940,25 +2943,47 @@ def names_sentences(form):
         return {}
     corpora = [x[0] for x in source]
     
+    cqp = form.get("cqp", "").decode('utf-8')
+    if cqp:
+        (defaultwithin, within_all) = _get_default_and_corpus_specific_param(
+            form, "within", "defaultwithin", "sentence")
+        (default_nameswithin, nameswithin_all) = \
+            _get_default_and_corpus_specific_param(
+            form, "nameswithin", "default_nameswithin", "text_id")
+
     for s in source:
         corpus, ids = s
         ids_list = ", ".join(conn.escape(i) for i in ids)
-        
+
+        if cqp:
+            within = within_all.get(corpus, defaultwithin)
+            nameswithin = nameswithin_all.get(corpus, default_nameswithin)
+            text_ids = _names_find_matching_texts(
+                form, corpus, cqp, within, nameswithin)
+            if not text_ids:
+                continue
+            text_ids_list = ",".join(conn.escape(i) for i in text_ids)
+            text_ids_sql = "AND S.text_id in ({text_ids})".format(
+                text_ids=text_ids_list)
+        else:
+            text_ids_sql = ""
+
         corpus_table_sentences = (
             config.DBTABLE_NAMES + "_" + corpus.upper() + "_sentences")
 
         sql_params = dict(corpus_u=conn.string_literal(corpus.upper()),
                           corptbl=corpus_table_sentences,
-                          name_ids=ids_list)
+                          name_ids=ids_list,
+                          text_ids_sql=text_ids_sql)
         selects.append(
             u"""(SELECT S.sentence_id, S.start, S.end, {corpus_u} AS corpus
                  FROM `{corptbl}` as S
-                 WHERE S.name_id IN ({name_ids}))"""
+                 WHERE S.name_id IN ({name_ids}) {text_ids_sql})"""
             .format(**sql_params))
         counts.append(
             u"""(SELECT {corpus_u} AS corpus, COUNT(*)
                  FROM `{corptbl}` as S
-                 WHERE S.name_id IN ({name_ids}))"""
+                 WHERE S.name_id IN ({name_ids}) {text_ids_sql})"""
             .format(**sql_params))
 
     sql_count = u" UNION ALL ".join(counts)
