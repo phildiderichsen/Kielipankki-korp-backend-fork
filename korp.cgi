@@ -2728,6 +2728,8 @@ def names(form):
         nameswithin = nameswithin_all.get(corpus, default_nameswithin)
         text_ids = _names_find_matching_texts(
             form, corpus, cqp, within, nameswithin)
+        if not text_ids:
+            continue
 
         corpus_table = config.DBTABLE_NAMES + "_" + corpus.upper()
         text_ids_in = ','.join(conn.escape(text_id) for text_id in text_ids)
@@ -2756,6 +2758,9 @@ def names(form):
 
     cursor.close()
     conn.close()
+
+    if not name_freqs:
+        return {}
 
     logging.debug('name_freqs: %s', name_freqs)
     if groups:
