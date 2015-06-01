@@ -2942,26 +2942,24 @@ def names_sentences(form):
     
     for s in source:
         corpus, ids = s
-        ids = [conn.escape(i) for i in ids]
-        ids_list = "(" + ", ".join(ids) + ")"
+        ids_list = ", ".join(conn.escape(i) for i in ids)
         
         corpus_table_sentences = (
             config.DBTABLE_NAMES + "_" + corpus.upper() + "_sentences")
-        
+
+        sql_params = dict(corpus_u=conn.string_literal(corpus.upper()),
+                          corptbl=corpus_table_sentences,
+                          name_ids=ids_list)
         selects.append(
             u"""(SELECT S.sentence_id, S.start, S.end, {corpus_u} AS corpus
                  FROM `{corptbl}` as S
-                 WHERE S.name_id IN {ids_list})""".format(
-                corpus_u=conn.string_literal(corpus.upper()),
-                corptbl=corpus_table_sentences,
-                ids_list=ids_list))
+                 WHERE S.name_id IN ({name_ids}))"""
+            .format(**sql_params))
         counts.append(
             u"""(SELECT {corpus_u} AS corpus, COUNT(*)
                  FROM `{corptbl}` as S
-                 WHERE S.name_id IN {ids_list})""".format(
-                corpus_u=conn.string_literal(corpus.upper()),
-                corptbl=corpus_table_sentences,
-                ids_list=ids_list))
+                 WHERE S.name_id IN ({name_ids}))"""
+            .format(**sql_params))
 
     sql_count = u" UNION ALL ".join(counts)
     logging.debug('sql_count: %s', sql_count)
