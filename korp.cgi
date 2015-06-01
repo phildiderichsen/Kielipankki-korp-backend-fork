@@ -2708,19 +2708,11 @@ def names(form):
     if not corpora:
         return {}
 
-    defaultwithin = form.get("defaultwithin", "sentence")
-    within = form.get("within", defaultwithin)
-    if within and ":" in within:
-        within_all = dict(x.split(":") for x in within.split(","))
-    else:
-        within_all = {}
-
-    default_nameswithin = form.get("default_nameswithin", "text_id")
-    nameswithin = form.get("nameswithin", default_nameswithin)
-    if nameswithin and ":" in nameswithin:
-        nameswithin_all = dict(x.split(":") for x in nameswithin.split(","))
-    else:
-        nameswithin_all = {}
+    (defaultwithin, within_all) = _get_default_and_corpus_specific_param(
+        form, "within", "defaultwithin", "sentence")
+    (default_nameswithin, nameswithin_all) = \
+        _get_default_and_corpus_specific_param(
+        form, "nameswithin", "default_nameswithin", "text_id")
 
     if incremental:
         print '"progress_corpora": [%s],' % ('"' + '", "'.join(corpora) + '"'
@@ -2728,45 +2720,14 @@ def names(form):
         progress_count = 0
 
     name_freqs = {}
-    cqpextra = {}
     cqp = cqp[0]
 
     for corpus in corpora:
 
         within = within_all.get(corpus, defaultwithin)
-        if within:
-            cqpextra["within"] = within
         nameswithin = nameswithin_all.get(corpus, default_nameswithin)
-        cmd = ["%s;" % corpus]
-        cmd += ["set Context 0 words;"]
-        cmd += ["set PrintStructures \"%s\";" % nameswithin]
-        cmd += ["show -cpos;"]
-        cmd += make_query(make_cqp(cqp, cqpextra))
-        cmd += ["size Last;"]
-        cmd += ["cat Last;"]
-        cmd += ["exit;"]
-
-        lines = runCQP(cmd, form)
-
-        # skip CQP version
-        lines.next()
-
-        # size of the query result
-        nr_hits = int(lines.next())
-        logging.debug('nr_hits: %s', nr_hits)
-
-        text_ids = []
-        for line in lines:
-            logging.debug('line: %s', line)
-            # Extract text_id from the concordance lines, which should
-            # be of the following form because of the option settings
-            # above: <textid_attr_name text_id>: <matching words>
-            line_words = line.split(" ")
-            if len(line_words) > 1 and line_words[0][1:] == nameswithin:
-                text_id = line.split(" ")[1].rstrip(">:")
-                if not text_ids or text_id != text_ids[-1]:
-                    text_ids.append(text_id)
-        logging.debug('text_ids: %s', text_ids)
+        text_ids = _names_find_matching_texts(
+            form, corpus, cqp, within, nameswithin)
 
         corpus_table = config.DBTABLE_NAMES + "_" + corpus.upper()
         text_ids_in = ','.join(conn.escape(text_id) for text_id in text_ids)
@@ -2839,6 +2800,69 @@ def names(form):
 
     return result
 
+
+def _get_default_and_corpus_specific_param(form, param_name,
+                                           default_param_name, default_value):
+    """Get default and possible corpus-specific form parameter values.
+
+    Get both the default value and possible corpus-specific values for
+    parameters with a default and corpus-specific variant, such as
+    "defaultwithin" and "within".
+
+    Returns a tuple containing the default value and a dictionary of
+    corpus-specific values with corpus names as keys.
+
+    A helper function used by names and names_sentences.
+    """
+
+    default = form.get(default_param_name, default_value)
+    corpus_specific = form.get(param_name, default)
+    if corpus_specific and ":" in corpus_specific:
+        corpus_specific = dict(x.split(":") for x in corpus_specific.split(","))
+    else:
+        corpus_specific = {}
+    return (default, corpus_specific)
+
+
+def _names_find_matching_texts(form, corpus, cqp, within, nameswithin):
+    """Find the text ids with matches for a CQP query.
+
+    A helper function used by names and names_sentences.
+    """
+
+    cqpextra = {}
+    if within:
+        cqpextra["within"] = within
+    cmd = ["%s;" % corpus]
+    cmd += ["set Context 0 words;"]
+    cmd += ["set PrintStructures \"%s\";" % nameswithin]
+    cmd += ["show -cpos;"]
+    cmd += make_query(make_cqp(cqp, cqpextra))
+    cmd += ["size Last;"]
+    cmd += ["cat Last;"]
+    cmd += ["exit;"]
+    lines = runCQP(cmd, form)
+
+    # skip CQP version
+    lines.next()
+    # size of the query result
+    nr_hits = int(lines.next())
+    logging.debug('nr_hits: %s', nr_hits)
+
+    text_ids = []
+    for line in lines:
+        logging.debug('line: %s', line)
+        # Extract text_id from the concordance lines, which should
+        # be of the following form because of the option settings
+        # above: <textid_attr_name text_id>: <matching words>
+        line_words = line.split(" ")
+        if len(line_words) > 1 and line_words[0][1:] == nameswithin:
+            text_id = line.split(" ")[1].rstrip(">:")
+            if not text_ids or text_id != text_ids[-1]:
+                text_ids.append(text_id)
+    logging.debug('text_ids: %s', text_ids)
+    return text_ids
+    
 
 ################################################################################
 # NAMES_SENTENCES
