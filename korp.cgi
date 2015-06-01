@@ -43,7 +43,7 @@ KORP_VERSION = "2.8"
 
 # The available CGI commands; for each command there must be a function
 # with the same name, taking one argument (the CGI form)
-COMMANDS = "info query count count_all relations relations_sentences lemgram_count timespan count_time optimize loglike query_sample authenticate".split()
+COMMANDS = "info query count count_all relations relations_sentences lemgram_count timespan count_time optimize loglike query_sample authenticate names names_sentences".split()
 
 
 def default_command(form):
@@ -2595,6 +2595,395 @@ def relations_sentences(form):
             s["match"]["end"] = max(map(int, r))
             
             # If the same relation appears more than once in the same sentence,
+            # append copies of the sentence as separate results
+            for r in sids[sid][1:]:
+                s2 = deepcopy(s)
+                s2["match"]["start"] = min(map(int, r)) - 1
+                s2["match"]["end"] = max(map(int, r))
+                result_temp["kwic"].insert(i + 1, s2)
+    
+        result.setdefault("kwic", []).extend(result_temp["kwic"])
+
+    result["hits"] = total_hits
+    result["corpus_hits"] = corpus_hits
+    result["corpus_order"] = corpora
+    result["querytime"] = querytime
+    result["cqptime"] = time.time() - cqpstarttime
+    
+    return result
+
+
+################################################################################
+# NAMES
+################################################################################
+
+def names(form):
+    """List names occurring in texts by category.
+
+    The required parameters are
+     - corpus: the CWB corpus/corpora
+     - cqp
+
+    The optional parameters are
+     - groups
+     - min: cut off results with a frequency lower than this
+       (default: no cut-off)
+     - max: maximum number of results
+       (default: 15)
+     - incremental: incrementally report the progress while executing
+       (default: false)
+    """
+    
+    assert_key("corpus", form, IS_IDENT, True)
+    assert_key("cqp", form, r"", True)
+
+    assert_key("groups", form, r"", False)
+    assert_key("min", form, IS_NUMBER, False)
+    assert_key("max", form, IS_NUMBER, False)
+    assert_key("incremental", form, r"(true|false)")
+
+    corpora = form.get("corpus")
+    if isinstance(corpora, basestring):
+        corpora = corpora.split(QUERY_DELIM)
+    corpora = set(corpora)
+    
+    optimize = True
+    
+    check_authentication(corpora)
+    
+    incremental = form.get("incremental", "").lower() == "true"
+    
+    use_cache = bool(not form.get("cache", "").lower() == "false" and
+                     config.CACHE_DIR)
+    cqp = [form.get("cqp").decode('utf-8')]
+    minfreq = int(form.get("min", 1))
+    maxresults = int(form.get("max", 15))
+    groups = form.get("groups")
+
+    # minfreqsql = " AND freq >= %s" % minfreq if minfreq else ""
+    
+    if config.ENCODED_SPECIAL_CHARS:
+        cqp = encode_special_chars_in_queries(cqp)
+
+    checksum_data = ("".join(sorted(corpora)),
+                     cqp,
+                     minfreq,
+                     groups,
+                     maxresults)
+    checksum = get_hash(checksum_data)
+    
+    result = {}
+
+    if (use_cache and
+        os.path.exists(os.path.join(config.CACHE_DIR, "names_" + checksum))):
+        with open(os.path.join(
+                config.CACHE_DIR, "names_" + checksum), "r") as cachefile:
+            result = json.load(cachefile)
+            if "debug" in form:
+                result.setdefault("DEBUG", {})
+                result["DEBUG"]["cache_read"] = True
+            return result
+    
+    conn = MySQLdb.connect(host="localhost",
+                           user=config.DBUSER,
+                           passwd=config.DBPASSWORD,
+                           db=config.DBNAME,
+                           use_unicode=True,
+                           charset="utf8")
+    # Get Unicode objects even with collation utf8_bin; see
+    # <http://stackoverflow.com/questions/9522413/mysql-python-collation-issue-how-to-force-unicode-datatype>
+    conn.converter[MySQLdb.constants.FIELD_TYPE.VAR_STRING] = [
+        (None, conn.string_decoder)]
+    cursor = conn.cursor()
+    cursor.execute("SET @@session.long_query_time = 1000;")
+    
+    # Get available tables
+    cursor.execute("SHOW TABLES LIKE '" + config.DBTABLE_NAMES + "_%';")
+    tables = set(x[0] for x in cursor)
+    logging.debug("tables: %s", tables)
+    # Filter out corpora which do not exist in database
+    corpora = filter(lambda x: config.DBTABLE_NAMES + "_" + x.upper() in tables,
+                     corpora)
+    logging.debug('corpora: %s', corpora)
+    if not corpora:
+        return {}
+
+    defaultwithin = form.get("defaultwithin", "sentence")
+    within = form.get("within", defaultwithin)
+    if within and ":" in within:
+        within_all = dict(x.split(":") for x in within.split(","))
+    else:
+        within_all = {}
+
+    default_nameswithin = form.get("default_nameswithin", "text_id")
+    nameswithin = form.get("nameswithin", default_nameswithin)
+    if nameswithin and ":" in nameswithin:
+        nameswithin_all = dict(x.split(":") for x in nameswithin.split(","))
+    else:
+        nameswithin_all = {}
+
+    if incremental:
+        print '"progress_corpora": [%s],' % ('"' + '", "'.join(corpora) + '"'
+                                             if corpora else "")
+        progress_count = 0
+
+    name_freqs = {}
+    cqpextra = {}
+    cqp = cqp[0]
+
+    for corpus in corpora:
+
+        within = within_all.get(corpus, defaultwithin)
+        if within:
+            cqpextra["within"] = within
+        nameswithin = nameswithin_all.get(corpus, default_nameswithin)
+        cmd = ["%s;" % corpus]
+        cmd += ["set Context 0 words;"]
+        cmd += ["set PrintStructures \"%s\";" % nameswithin]
+        cmd += ["show -cpos;"]
+        cmd += make_query(make_cqp(cqp, cqpextra))
+        cmd += ["size Last;"]
+        cmd += ["cat Last;"]
+        cmd += ["exit;"]
+
+        lines = runCQP(cmd, form)
+
+        # skip CQP version
+        lines.next()
+
+        # size of the query result
+        nr_hits = int(lines.next())
+        logging.debug('nr_hits: %s', nr_hits)
+
+        text_ids = []
+        for line in lines:
+            logging.debug('line: %s', line)
+            # Extract text_id from the concordance lines, which should
+            # be of the following form because of the option settings
+            # above: <textid_attr_name text_id>: <matching words>
+            line_words = line.split(" ")
+            if len(line_words) > 1 and line_words[0][1:] == nameswithin:
+                text_id = line.split(" ")[1].rstrip(">:")
+                if not text_ids or text_id != text_ids[-1]:
+                    text_ids.append(text_id)
+        logging.debug('text_ids: %s', text_ids)
+
+        corpus_table = config.DBTABLE_NAMES + "_" + corpus.upper()
+        text_ids_in = ','.join(conn.escape(text_id) for text_id in text_ids)
+
+        select = u"""SELECT NS.name, NS.category, N.name_id, sum(N.freq)
+                     FROM `{corptbl}` as N, `{corptbl}_strings` as NS
+                     WHERE N.name_id = NS.id and N.text_id IN ({text_ids})
+                     GROUP BY NS.id;""".format(
+            corptbl=corpus_table,
+            text_ids=text_ids_in)
+        logging.debug('select: %s', select)
+
+        cursor.execute(select)
+
+        if incremental:
+            print '"progress_%d": {"corpus": "%s"},' % (progress_count, corpus)
+            progress_count += 1
+
+        for row in cursor:
+            logging.debug('row: %s', row)
+            name, cat, name_id, freq = row
+            cat_freqs = name_freqs.setdefault(cat, {})
+            prev_freq, prev_source = cat_freqs.get(name, (0, []))
+            cat_freqs[name] = (prev_freq + int(freq),
+                               (prev_source + [corpus + ":" + str(name_id)]))
+
+    cursor.close()
+    conn.close()
+
+    logging.debug('name_freqs: %s', name_freqs)
+    if groups:
+        groups = [group.split(',') for group in groups.split('|')]
+    else:
+        groups = [[cat] for cat in sorted(name_freqs.keys())]
+    logging.debug('groups: %s', groups)
+
+    result_names = []
+    for group in groups:
+        group_result = {"group": "|".join(group)}
+        namelist = []
+        for cat in group:
+            for name, freq_src in name_freqs[cat].iteritems():
+                freq, source = freq_src
+                if freq >= minfreq:
+                    namelist.append((freq, name, cat, source))
+        namelist.sort(reverse=True)
+        logging.debug('namelist: %s', namelist)
+        if maxresults > 0:
+            namelist = namelist[:maxresults]
+        group_result["names"] = [{"name": name,
+                                  "category": cat,
+                                  "freq": freq,
+                                  "source": source}
+                                 for freq, name, cat, source in namelist]
+        result_names.append(group_result)
+    result = {"name_groups": result_names}
+
+    if use_cache:
+        unique_id = os.getenv("UNIQUE_ID")
+        cachefilename = os.path.join(config.CACHE_DIR, "names_" + checksum)
+        tmpfile = "%s.%s" % (cachefilename, unique_id)
+
+        with open(tmpfile, "w") as cachefile:
+            json.dump(result, cachefile)
+        os.rename(tmpfile, cachefilename)
+
+        if "debug" in form:
+            result.setdefault("DEBUG", {})
+            result["DEBUG"]["cache_saved"] = True
+
+    return result
+
+
+################################################################################
+# NAMES_SENTENCES
+################################################################################
+
+def names_sentences(form):
+    """Executes a CQP query to find sentences with a given relation from a word picture.
+
+    The required parameters are
+     - source: the CWB corpus/corpora with name ids
+
+    The optional parameters are
+     - start, end: which result rows that should be returned
+     - show
+     - show_struct
+    """
+
+    from copy import deepcopy
+    
+    assert_key("source", form, "", True)
+    assert_key("start", form, IS_NUMBER, False)
+    assert_key("end", form, IS_NUMBER, False)
+    
+    # TODO (Jyrki Niemi): Use uniquify_corpora() to optionally
+    # preserve the order of corpora in source. We now probably need
+    # here a separate list for storing the original order;
+    # uniquify_corpora() should probably be used below where sorted()
+    # is now used.
+    temp_source = form.get("source")
+    if isinstance(temp_source, basestring):
+        temp_source = temp_source.split(QUERY_DELIM)
+    source = defaultdict(set)
+    for s in temp_source:
+        c, i = s.split(":")
+        source[c].add(i)
+    
+    check_authentication(source.keys())
+    
+    start = int(form.get("start", "0"))
+    end = int(form.get("end", "99"))
+    shown = form.get("show", "word")
+    shown_structs = form.get("show_struct", [])
+    if isinstance(shown_structs, basestring):
+        shown_structs = shown_structs.split(QUERY_DELIM)
+    shown_structs = set(shown_structs)
+    
+    querystarttime = time.time()
+
+    conn = MySQLdb.connect(host="localhost",
+                           user=config.DBUSER,
+                           passwd=config.DBPASSWORD,
+                           db=config.DBNAME)
+    # Get Unicode objects even with collation utf8_bin; see
+    # <http://stackoverflow.com/questions/9522413/mysql-python-collation-issue-how-to-force-unicode-datatype>
+    conn.converter[MySQLdb.constants.FIELD_TYPE.VAR_STRING] = [
+        (None, conn.string_decoder)]
+    cursor = conn.cursor()
+    cursor.execute("SET @@session.long_query_time = 1000;")
+    selects = []
+    counts = []
+    
+    # Get available tables
+    cursor.execute("SHOW TABLES LIKE '" + config.DBTABLE_NAMES + "_%';")
+    tables = set(x[0] for x in cursor)
+    # Filter out corpora which doesn't exist in database
+    source = sorted(filter(
+            lambda x: config.DBTABLE_NAMES + "_" + x[0].upper() in tables,
+            source.iteritems()))
+    if not source:
+        return {}
+    corpora = [x[0] for x in source]
+    
+    for s in source:
+        corpus, ids = s
+        ids = [conn.escape(i) for i in ids]
+        ids_list = "(" + ", ".join(ids) + ")"
+        
+        corpus_table_sentences = (
+            config.DBTABLE_NAMES + "_" + corpus.upper() + "_sentences")
+        
+        selects.append(
+            u"""(SELECT S.sentence_id, S.start, S.end, {corpus_u} AS corpus
+                 FROM `{corptbl}` as S
+                 WHERE S.name_id IN {ids_list})""".format(
+                corpus_u=conn.string_literal(corpus.upper()),
+                corptbl=corpus_table_sentences,
+                ids_list=ids_list))
+        counts.append(
+            u"""(SELECT {corpus_u} AS corpus, COUNT(*)
+                 FROM `{corptbl}` as S
+                 WHERE S.name_id IN {ids_list})""".format(
+                corpus_u=conn.string_literal(corpus.upper()),
+                corptbl=corpus_table_sentences,
+                ids_list=ids_list))
+
+    sql_count = u" UNION ALL ".join(counts)
+    logging.debug('sql_count: %s', sql_count)
+    cursor.execute(sql_count)
+    
+    corpus_hits = {}
+    for row in cursor:
+        corpus_hits[row[0]] = int(row[1])
+    
+    sql = u" UNION ALL ".join(selects) + (u" LIMIT %d, %d" % (start, end - 1))
+    logging.debug('sql: %s', sql)
+    cursor.execute(sql)
+    
+    querytime = time.time() - querystarttime
+    corpora_dict = {}
+    for row in cursor:
+        # 0 sentence, 1 start, 2 end, 3 corpus
+        corpora_dict.setdefault(row[3], {}).setdefault(row[0], []).append((row[1], row[2]))
+
+    cursor.close()
+    
+    total_hits = sum(corpus_hits.values())
+
+    if not corpora_dict:
+        return {"hits": 0}
+    
+    cqpstarttime = time.time()
+    result = {}
+    
+    for corp, sids in sorted(corpora_dict.items(), key=lambda x: x[0]):
+        cqp = (u'<sentence_id="%s"> []* </sentence_id> within sentence'
+               % "|".join(set(sids.keys())))
+        q = {"cqp": cqp,
+             "corpus": corp,
+             "start": "0",
+             "end": str(end - start),
+             "show_struct": ["sentence_id"] + list(shown_structs),
+             "defaultcontext": "1 sentence"}
+        if shown:
+            q["show"] = shown
+        result_temp = query(q)
+
+        # Loop backwards since we might be adding new items
+        for i in range(len(result_temp["kwic"]) - 1, -1, -1):
+            s = result_temp["kwic"][i]
+            sid = s["structs"]["sentence_id"]
+            r = sids[sid][0]
+            s["match"]["start"] = min(map(int, r)) - 1
+            s["match"]["end"] = max(map(int, r))
+            
+            # If the same name appears more than once in the same sentence,
             # append copies of the sentence as separate results
             for r in sids[sid][1:]:
                 s2 = deepcopy(s)

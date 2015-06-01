@@ -91,3 +91,7 @@ SORT_CORPORA = False
 # Whether the "info" command for corpora should retrieve extra
 # information from the database table "corpus_info".
 DB_HAS_CORPUSINFO = True
+
+# The table name prefix of the name information tables in the MySQL
+# database
+DBTABLE_NAMES = "names"
