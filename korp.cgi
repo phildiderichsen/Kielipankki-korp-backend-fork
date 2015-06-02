@@ -2762,22 +2762,24 @@ def names(form):
     if not name_freqs:
         return {}
 
+    name_cats = sorted(name_freqs.keys())
     logging.debug('name_freqs: %s', name_freqs)
     if groups:
-        groups = [group.split(',') for group in groups.split('|')]
+        groups = groups.split(',')
     else:
-        groups = [[cat] for cat in sorted(name_freqs.keys())]
+        groups = name_cats
     logging.debug('groups: %s', groups)
 
     result_names = []
     for group in groups:
-        group_result = {"group": "|".join(group)}
+        group_result = {"group": group}
         namelist = []
-        for cat in group:
-            for name, freq_src in name_freqs[cat].iteritems():
-                freq, source = freq_src
-                if freq >= minfreq:
-                    namelist.append((freq, name, cat, source))
+        for cat in name_cats:
+            if re.match(group, cat):
+                for name, freq_src in name_freqs[cat].iteritems():
+                    freq, source = freq_src
+                    if freq >= minfreq:
+                        namelist.append((freq, name, cat, source))
         namelist.sort(reverse=True)
         logging.debug('namelist: %s', namelist)
         if maxresults > 0:
