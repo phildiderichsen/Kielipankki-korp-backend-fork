@@ -2829,7 +2829,8 @@ def _get_default_and_corpus_specific_param(form, param_name,
     default = form.get(default_param_name, default_value)
     corpus_specific = form.get(param_name, default)
     if corpus_specific and ":" in corpus_specific:
-        corpus_specific = dict(x.split(":") for x in corpus_specific.split(","))
+        corpus_specific = dict(
+            (x.split(":")[0], x) for x in corpus_specific.split(","))
     else:
         corpus_specific = {}
     return (default, corpus_specific)
