@@ -3023,6 +3023,8 @@ def names_sentences(form):
     if not corpora_dict:
         return {"hits": 0}
     
+    (defaultcontext, context_all) = _get_default_and_corpus_specific_param(
+        form, "context", "defaultcontext", "1 sentence")
     cqpstarttime = time.time()
     result = {}
     
@@ -3034,7 +3036,10 @@ def names_sentences(form):
              "start": "0",
              "end": str(end - start),
              "show_struct": ["sentence_id"] + list(shown_structs),
-             "defaultcontext": "1 sentence"}
+             "defaultcontext": defaultcontext}
+        context = context_all.get(corpus)
+        if context:
+            q["context"] = context
         if shown:
             q["show"] = shown
         result_temp = query(q)
