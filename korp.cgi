@@ -2763,8 +2763,11 @@ def names(form):
     cursor.close()
     conn.close()
 
+    # An empty name_groups indicates that no names were found with the
+    # query, whereas a completely empty result indicates that the
+    # selected corpora have no name information.
     if not name_freqs:
-        return {}
+        return {"name_groups": []}
 
     name_cats = sorted(name_freqs.keys())
     logging.debug('name_freqs: %s', name_freqs)
