@@ -2732,7 +2732,11 @@ def names(form):
             continue
 
         corpus_table = config.DBTABLE_NAMES + "_" + corpus.upper()
-        text_ids_in = ','.join(conn.escape(text_id) for text_id in text_ids)
+        # Use literal single quotes, since conn.escape() does not seem
+        # to quote strings as expected. Why?
+        text_ids_in = ",".join("'" + text_id + "'" for text_id in text_ids)
+        # logging.debug("text_ids: %s", text_ids)
+        # logging.debug("text_ids_in: %s", text_ids_in)
 
         select = u"""SELECT NS.name, NS.category, N.name_id, sum(N.freq)
                      FROM `{corptbl}` as N, `{corptbl}_strings` as NS
@@ -2869,7 +2873,7 @@ def _names_find_matching_texts(form, corpus, cqp, within, nameswithin):
                 text_ids.append(text_id)
     logging.debug('text_ids: %s', text_ids)
     return text_ids
-    
+
 
 ################################################################################
 # NAMES_SENTENCES
@@ -2964,7 +2968,9 @@ def names_sentences(form):
                 form, corpus, cqp, within, nameswithin)
             if not text_ids:
                 continue
-            text_ids_list = ",".join(conn.escape(i) for i in text_ids)
+            # Use literal single quotes, since conn.escape() does not
+            # seem to quote strings as expected. Why?
+            text_ids_list = ",".join("'" + i + "'" for i in text_ids)
             text_ids_sql = "AND S.text_id in ({text_ids})".format(
                 text_ids=text_ids_list)
         else:
