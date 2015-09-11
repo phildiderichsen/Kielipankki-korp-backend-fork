@@ -1113,7 +1113,9 @@ def count(form):
                      split,
                      strippointer,
                      start,
-                     end)
+                     end,
+                     form.get("defaultwithin"),
+                     form.get("within"))
     checksum = get_hash(checksum_data)
     
     if use_cache:
