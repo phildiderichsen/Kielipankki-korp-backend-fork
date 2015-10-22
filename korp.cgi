@@ -303,21 +303,26 @@ def corpus_info(form):
 
 def add_corpusinfo_from_database(result, corpora):
     """Add extra info items from database to the info of corpora in result."""
-    conn = MySQLdb.connect(host = "localhost",
-                           user = config.DBUSER,
-                           passwd = config.DBPASSWORD,
-                           db = config.DBNAME,
-                           use_unicode = True,
-                           charset = "utf8")
-    cursor = conn.cursor()
-    sql = ("SELECT `corpus`, `key`, `value` FROM corpus_info WHERE corpus IN (%s)"
-           % ", ".join("%s" % conn.escape(c) for c in corpora))
-    cursor.execute(sql)
-    for row in cursor:
-        corpus, key, value = row
-        result["corpora"][corpus]["info"][key] = value
-    cursor.close()
-    conn.close()
+    try:
+        conn = MySQLdb.connect(host = "localhost",
+                               user = config.DBUSER,
+                               passwd = config.DBPASSWORD,
+                               db = config.DBNAME,
+                               use_unicode = True,
+                               charset = "utf8")
+        cursor = conn.cursor()
+        sql = ("SELECT `corpus`, `key`, `value` FROM corpus_info WHERE corpus IN (%s)"
+               % ", ".join("%s" % conn.escape(c) for c in corpora))
+        cursor.execute(sql)
+        for row in cursor:
+            corpus, key, value = row
+            result["corpora"][corpus]["info"][key] = value
+        cursor.close()
+        conn.close()
+    except (MySQLdb.MySQLError, MySQLdb.InterfaceError, MySQLdb.DatabaseError):
+        # Return the result unmodified if the database access caused
+        # an error.
+        pass
     return result
 
 
