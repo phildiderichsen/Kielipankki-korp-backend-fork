@@ -65,20 +65,36 @@ QUERY_DELIM = ","
 # escaped with a backslash to match literally. If they are not
 # preceded with a backslash, they should not be replaced in queries.
 CQP_REGEX_SPECIAL_CHARS = "()|[].*+?{}^$"
+# The character with which to replace literal backslashes escaped by
+# another backslash, so that a regex metacharacter preceded by such
+# will not be replaced. The literal backslashes are replaced before
+# other replacements and they are restored after other replacements.
+REGEX_ESCAPE_CHAR_TMP = (config.ENCODED_SPECIAL_CHAR_PREFIX
+                         + unichr(config.ENCODED_SPECIAL_CHAR_OFFSET
+                                  + len(config.SPECIAL_CHARS)))
 # Encoding and decoding mapping (list of pairs (string, replacement))
-# for special characters
+# for special characters. Since the replacement for a regex
+# metacharacter should not be a regex metacharacter, it is not
+# preceded by a backslash.
 SPECIAL_CHAR_ENCODE_MAP = [
-    (escape + c, (escape + config.ENCODED_SPECIAL_CHAR_PREFIX
-                  + unichr(i + config.ENCODED_SPECIAL_CHAR_OFFSET)))
+    (escape + c, (config.ENCODED_SPECIAL_CHAR_PREFIX
+                   + unichr(i + config.ENCODED_SPECIAL_CHAR_OFFSET)))
      for (i, c) in enumerate(config.SPECIAL_CHARS)
      for escape in ["\\" if c in CQP_REGEX_SPECIAL_CHARS else ""]]
+# Handle literal backslashes only if any of config.SPECIAL_CHARS is a
+# regex metacharacter.
+if any(spch == rech for spch in config.SPECIAL_CHARS
+       for rech in CQP_REGEX_SPECIAL_CHARS):
+    SPECIAL_CHAR_ENCODE_MAP = (
+        [("\\\\", REGEX_ESCAPE_CHAR_TMP)]
+        + SPECIAL_CHAR_ENCODE_MAP
+        + [(REGEX_ESCAPE_CHAR_TMP, "\\\\")])
+
 # When decoding, we need not take into account regex metacharacter
 # escaping
 SPECIAL_CHAR_DECODE_MAP = [(repl[-1], c[-1])
-                           for (c, repl) in SPECIAL_CHAR_ENCODE_MAP]
-# FIXME: Replacing escaped regex metacharacters also replaces
-# unescaped ones preceded by a literal backslash (escaped by another
-# backslash).
+                           for (c, repl) in SPECIAL_CHAR_ENCODE_MAP
+                           if c != "\\\\" and repl != "\\\\"]
 
 # The regexp for the names of the corpora whose sentences should never
 # be shown in corpus order; initialized in main()
