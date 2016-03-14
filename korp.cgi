@@ -441,9 +441,6 @@ def query(form):
                      expand_prequeries
                     )
 
-    if config.ENCODED_SPECIAL_CHARS:
-        cqp = encode_special_chars_in_queries(cqp)
-
     # Calculate querydata checksum
     checksum = get_hash(checksum_data)
     
@@ -1141,9 +1138,6 @@ def count(form):
         simple = True
     
     expand_prequeries = not form.get("expand_prequeries", "").lower() == "false"
-
-    if config.ENCODED_SPECIAL_CHARS:
-        cqp = encode_special_chars_in_queries(cqp)
 
     checksum_data = (sorted(corpora),
                      cqp,
@@ -2662,9 +2656,6 @@ def names(form):
 
     # minfreqsql = " AND freq >= %s" % minfreq if minfreq else ""
     
-    if config.ENCODED_SPECIAL_CHARS:
-        cqp = encode_special_chars_in_queries(cqp)
-
     checksum_data = ("".join(sorted(corpora)),
                      cqp,
                      minfreq,
@@ -3130,6 +3121,8 @@ def parse_cqp(cqp):
 
 def make_cqp(cqp, cqpextra):
     """ Combine CQP query and extra options. """
+    if config.ENCODED_SPECIAL_CHARS:
+        cqp = encode_special_chars_in_query(cqp)
     order = ("within", "cut", "expand")
     for i in sorted(cqpextra.items(), key=lambda x: order.index(x[0])):
         cqp += " %s %s" % i
