@@ -30,11 +30,32 @@ DBTABLE = "relations"
 DBUSER = "korp"
 DBPASSWORD = ""
 
+# A dictionary of the database connection options: makes it easier to
+# change also e.g. the port and socket without having to add the
+# corresponding variables to all MySQLdb.connect calls in korp.cgi.
+DBCONNECT = {
+    "host": "localhost",
+    # "port": 3306,
+    # "unix_socket": "",
+    "db": DBNAME,
+    "user": DBUSER,
+    "passwd": DBPASSWORD,
+}
+
 # Put PROTECTED_FILE contents, with PUB, ACA and RES, and other
 # authorization information in the database (jpiitula Dec 2013)
 AUTH_DBNAME = "korp_auth"
 AUTH_DBUSER = "korp"
 AUTH_DBPASSWORD = ""
+
+AUTH_DBCONNECT = {
+    "host": "localhost",
+    # "port": 3306,
+    # "unix_socket": "",
+    "db": AUTH_DBNAME,
+    "user": AUTH_DBUSER,
+    "passwd": AUTH_DBPASSWORD,
+}
 
 # URL to authentication server
 AUTH_SERVER = "http://localhost/cgi-bin/korp/auth.cgi"

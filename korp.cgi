@@ -319,12 +319,9 @@ def corpus_info(form):
 def add_corpusinfo_from_database(result, corpora):
     """Add extra info items from database to the info of corpora in result."""
     try:
-        conn = MySQLdb.connect(host = "localhost",
-                               user = config.DBUSER,
-                               passwd = config.DBPASSWORD,
-                               db = config.DBNAME,
-                               use_unicode = True,
-                               charset = "utf8")
+        conn = MySQLdb.connect(use_unicode=True,
+                               charset="utf8",
+                               **config.DBCONNECT)
         cursor = conn.cursor()
         sql = ("SELECT `corpus`, `key`, `value` FROM corpus_info WHERE corpus IN (%s)"
                % ", ".join("%s" % conn.escape(c) for c in corpora))
@@ -1894,12 +1891,9 @@ def lemgram_count(form):
     
     sums = " + ".join("SUM(%s)" % counts[c] for c in count)
     
-    conn = MySQLdb.connect(host="localhost",
-                           user=config.DBUSER,
-                           passwd=config.DBPASSWORD,
-                           db=config.DBNAME,
-                           use_unicode=True,
-                           charset="utf8")
+    conn = MySQLdb.connect(use_unicode=True,
+                           charset="utf8",
+                           **config.DBCONNECT)
     # Get Unicode objects even with collation utf8_bin; see
     # <http://stackoverflow.com/questions/9522413/mysql-python-collation-issue-how-to-force-unicode-datatype>
     conn.converter[MySQLdb.constants.FIELD_TYPE.VAR_STRING] = [
@@ -1998,13 +1992,10 @@ def timespan(form):
                     result["DEBUG"]["cache_read"] = True
                 return result
 
-    conn = MySQLdb.connect(host="localhost",
-                           user=config.DBUSER,
-                           passwd=config.DBPASSWORD,
-                           db=config.DBNAME,
-                           use_unicode=True,
+    conn = MySQLdb.connect(use_unicode=True,
                            charset="utf8",
-                           cursorclass=MySQLdb.cursors.SSCursor)
+                           cursorclass=MySQLdb.cursors.SSCursor,
+                           **config.DBCONNECT)
     cursor = conn.cursor()
 
     ns = {}
@@ -2317,12 +2308,9 @@ def relations(form):
     
     result = {}
 
-    conn = MySQLdb.connect(host="localhost",
-                           user=config.DBUSER,
-                           passwd=config.DBPASSWORD,
-                           db=config.DBNAME,
-                           use_unicode=True,
-                           charset="utf8")
+    conn = MySQLdb.connect(use_unicode=True,
+                           charset="utf8",
+                           **config.DBCONNECT)
     # Get Unicode objects even with collation utf8_bin; see
     # <http://stackoverflow.com/questions/9522413/mysql-python-collation-issue-how-to-force-unicode-datatype>
     conn.converter[MySQLdb.constants.FIELD_TYPE.VAR_STRING] = [
@@ -2523,10 +2511,7 @@ def relations_sentences(form):
     
     querystarttime = time.time()
 
-    conn = MySQLdb.connect(host="localhost",
-                           user=config.DBUSER,
-                           passwd=config.DBPASSWORD,
-                           db=config.DBNAME)
+    conn = MySQLdb.connect(**config.DBCONNECT)
     # Get Unicode objects even with collation utf8_bin; see
     # <http://stackoverflow.com/questions/9522413/mysql-python-collation-issue-how-to-force-unicode-datatype>
     conn.converter[MySQLdb.constants.FIELD_TYPE.VAR_STRING] = [
@@ -2691,12 +2676,9 @@ def names(form):
                 result["DEBUG"]["cache_read"] = True
             return result
     
-    conn = MySQLdb.connect(host="localhost",
-                           user=config.DBUSER,
-                           passwd=config.DBPASSWORD,
-                           db=config.DBNAME,
-                           use_unicode=True,
-                           charset="utf8")
+    conn = MySQLdb.connect(use_unicode=True,
+                           charset="utf8",
+                           **config.DBCONNECT)
     # Get Unicode objects even with collation utf8_bin; see
     # <http://stackoverflow.com/questions/9522413/mysql-python-collation-issue-how-to-force-unicode-datatype>
     conn.converter[MySQLdb.constants.FIELD_TYPE.VAR_STRING] = [
@@ -2936,10 +2918,7 @@ def names_sentences(form):
     
     querystarttime = time.time()
 
-    conn = MySQLdb.connect(host="localhost",
-                           user=config.DBUSER,
-                           passwd=config.DBPASSWORD,
-                           db=config.DBNAME)
+    conn = MySQLdb.connect(**config.DBCONNECT)
     # Get Unicode objects even with collation utf8_bin; see
     # <http://stackoverflow.com/questions/9522413/mysql-python-collation-issue-how-to-force-unicode-datatype>
     conn.converter[MySQLdb.constants.FIELD_TYPE.VAR_STRING] = [
@@ -3416,12 +3395,9 @@ def check_authentication(corpora):
     """Raises an exception if any of the corpora are protected and the
     user is not authorized to access them (by config.AUTH_SERVER)."""
     
-    conn = MySQLdb.connect(host = "localhost",
-                           user = config.AUTH_DBUSER,
-                           passwd = config.AUTH_DBPASSWORD,
-                           db = config.AUTH_DBNAME,
-                           use_unicode = True,
-                           charset = "utf8")
+    conn = MySQLdb.connect(use_unicode=True,
+                           charset="utf8",
+                           **config.AUTH_DBCONNECT)
     cursor = conn.cursor()
     cursor.execute('''
     select corpus from auth_license
