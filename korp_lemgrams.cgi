@@ -6,14 +6,11 @@ import time
 import cgi
 import json
 import MySQLdb
+import korp_config as config
 
 
 # The name of the MySQL database and table prefix
-DBNAME = "korp"
 DBTABLE = "lemgram_index"
-# Username and password for database access
-DBUSER = "korp"
-DBPASSWORD = ""
 
 
 def main():
@@ -47,12 +44,9 @@ def main():
 
 
 def get_lemgrams(wf, corpora):
-    conn = MySQLdb.connect(host = "localhost",
-                           user = DBUSER,
-                           passwd = DBPASSWORD,
-                           db = DBNAME,
-                           use_unicode = True,
-                           charset = "utf8")
+    conn = MySQLdb.connect(use_unicode=True,
+                           charset="utf8",
+                           **config.DBCONNECT)
     # Get Unicode objects even with collation utf8_bin; see
     # <http://stackoverflow.com/questions/9522413/mysql-python-collation-issue-how-to-force-unicode-datatype>
     conn.converter[MySQLdb.constants.FIELD_TYPE.VAR_STRING] = [

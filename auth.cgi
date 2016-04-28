@@ -25,11 +25,10 @@ import logging
 import os
 
 import sys
-sys.stderr = sys.stdout
 
-AUTH_DBNAME = "korp_auth"
-AUTH_DBUSER = "korp"
-AUTH_DBPASSWORD = ""
+import korp_config as config
+
+sys.stderr = sys.stdout
 
 LOG_FILE = "/v/korp/log/korp-auth.log"
 LOG_LEVEL = logging.INFO    # in non-logging version, WARNING
@@ -43,12 +42,9 @@ def main():
                 for field in form_raw.keys())
     logging.info('raw form: %s', form)
 
-    conn = MySQLdb.connect(host = "localhost",
-                           user = AUTH_DBUSER,
-                           passwd = AUTH_DBPASSWORD,
-                           db = AUTH_DBNAME,
-                           use_unicode = True,
-                           charset = "utf8")
+    conn = MySQLdb.connect(use_unicode=True,
+                           charset="utf8",
+                           **config.AUTH_DBCONNECT)
     cursor = conn.cursor()
 
     authenticated, academic = False, False
