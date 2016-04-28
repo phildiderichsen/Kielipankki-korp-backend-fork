@@ -66,10 +66,10 @@ def main():
     else:
         username = form.get('username', '')
         password = form.get('password', '')
-        # Faking the ACA bit - not for production use:
-        if username.endswith('+ACA'):
-            username, _ = username.rsplit('+')
-            academic = True
+        # # Faking the ACA bit - not for production use:
+        # if username.endswith('+ACA'):
+        #     username, _ = username.rsplit('+')
+        #     academic = True
         cursor.execute('''
         select secret from auth_secret
         where person = %s''', [username])
