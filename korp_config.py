@@ -62,8 +62,10 @@ AUTH_SERVER = "http://localhost/cgi-bin/korp/auth.cgi"
 # Secret string used when communicating with authentication server
 AUTH_SECRET = ""
 
-# A text file with names of corpora needing authentication, one per line
-PROTECTED_FILE = "/v/corpora/protected.txt"
+# A text file with names of corpora needing authentication, one per line;
+# None (or another false-like value) to not use the file but to get the
+# names of protected corpora from the authorization database.
+PROTECTED_FILE = None
 
 # Cache path (optional). Script must have read and write access. Cache needs to be cleared manually when corpus data is updated.
 CACHE_DIR = "/v/korp/cache"
