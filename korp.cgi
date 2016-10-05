@@ -221,6 +221,8 @@ def general_info(form):
     if config.PROTECTED_FILE:
         with open(config.PROTECTED_FILE) as infile:
             protected = [x.strip() for x in infile.readlines()]
+    else:
+        protected = get_protected_corpora()
     
     return {"cqp-version": version, "corpora": list(corpora), "protected_corpora": protected}
 
@@ -3391,22 +3393,31 @@ def authenticate(_=None):
     return auth_response.get('permitted_resources', {})
 
 
+def get_protected_corpora():
+    """Return a list of protected corpora listed in the auth database."""
+    protected = []
+    try:
+        conn = MySQLdb.connect(use_unicode=True,
+                               charset="utf8",
+                               **config.AUTH_DBCONNECT)
+        cursor = conn.cursor()
+        cursor.execute('''
+        select corpus from auth_license
+        where license = 'ACA' or license = 'RES'
+        ''')
+        protected = [ corpus for corpus, in cursor ]
+        cursor.close()
+        conn.close()
+    except AttributeError:
+        pass
+    return protected
+
+
 def check_authentication(corpora):
     """Raises an exception if any of the corpora are protected and the
     user is not authorized to access them (by config.AUTH_SERVER)."""
-    
-    conn = MySQLdb.connect(use_unicode=True,
-                           charset="utf8",
-                           **config.AUTH_DBCONNECT)
-    cursor = conn.cursor()
-    cursor.execute('''
-    select corpus from auth_license
-    where license = 'ACA' or license = 'RES'
-    ''')
-    protected = [ corpus for corpus, in cursor ]
-    cursor.close()
-    conn.close()
 
+    protected = get_protected_corpora()
     logging.debug("check_auth: corpora: %s; protected: %s", corpora, protected)
 
     if protected:
