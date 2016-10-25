@@ -3164,6 +3164,8 @@ def runCQP(command, form, executable=config.CQP_EXECUTABLE, registry=config.CWB_
     """
     env = os.environ.copy()
     env["LC_COLLATE"] = config.LC_COLLATE
+    if config.TMPDIR:
+        env["TMPDIR"] = config.TMPDIR
     encoding = form.get("encoding", config.CQP_ENCODING)
     if not isinstance(command, basestring):
         command = "\n".join(command)
