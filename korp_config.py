@@ -101,9 +101,13 @@ RESTRICTED_SENTENCES_CORPORA_FILE = "/v/corpora/restricted_sentences.txt"
 RESTRICTED_SENTENCES_DEFAULT_SORT = "keyword"
 
 import logging
+import time
 
+_localtime = time.localtime()
 # Path to log file; use /dev/null to disable logging
-LOG_FILE = "/v/korp/log/korp-cgi.log"
+# (/v/korp/log/korp-cgi-YYYYMM.log)
+LOG_FILE = "/v/korp/log/korp-cgi-{year}{mon:02d}.log".format(
+    year=_localtime.tm_year, mon=_localtime.tm_mon)
 # Log level: set to logging.DEBUG for also logging actual CQP
 # commands, logging.WARNING for only warnings and errors,
 # logging.CRITICAL to disable logging
