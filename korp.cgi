@@ -727,6 +727,7 @@ def query_optimize(cqp, cqpextra, find_match=True, expand=True):
         else:
             cmd[0] += " 1 1)"
 
+    cmd[0] = encode_special_chars_in_query(cmd[0])
     if find_match:
         # MU searches only highlights the first keyword of each hit. To highlight all keywords we need to
         # do a new non-optimized search within the results, and to be able to do that we first need to expand the rows.
