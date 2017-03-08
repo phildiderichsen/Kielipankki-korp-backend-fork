@@ -990,7 +990,15 @@ def query_parse_lines(corpus, lines, attrs, shown, shown_structs,
 
                 linestructs[s_key] = s_val
 
-        words = line.split()
+        # Split at spaces (U+0020) only, instead of splitting at any
+        # space characters as .split() does. This avoids splitting at
+        # e.g. NBSP (U+00A0), which caused problems with
+        # sentence-internal structural attribute values (such as
+        # ne_name) containing NBSPs. (They probably should not contain
+        # them, however.) Splitting at U+0020 only should be safe,
+        # since that seems to be always the separator (if I read the
+        # CWB source code correctly). (Jyrki Niemi 2017-03-06)
+        words = line.split(' ')
         tokens = []
         n = 0
         structs = defaultdict(list)
