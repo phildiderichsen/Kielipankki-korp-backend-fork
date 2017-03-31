@@ -156,6 +156,11 @@ def main():
     logging.info('Script: %s', cgi.os.environ.get('SCRIPT_NAME'))
     logging.info('Command: %s', command)
     logging.info('Params: %s', form)
+    # Log user information (Shibboleth authentication only)
+    remote_user = cgi.os.environ.get('REMOTE_USER')
+    if remote_user:
+        logging.info('Auth-domain: %s', remote_user.partition('@')[2])
+        logging.info('Auth-user: %s', md5.new(remote_user).hexdigest())
     logging.debug('Env: %s', cgi.os.environ)
 
     try:
