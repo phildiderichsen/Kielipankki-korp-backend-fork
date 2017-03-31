@@ -100,6 +100,14 @@ SPECIAL_CHAR_DECODE_MAP = [(repl[-1], c[-1])
 # be shown in corpus order; initialized in main()
 RESTRICTED_SENTENCES_CORPORA_REGEXP = None
 
+
+# KLUDGE: A global variable for calculating the output JSON size for
+# logging. This simpler to implement because of incremental output.
+# The size is approximate, since it excludes incremental progress
+# information.
+_result_json_size = 0
+
+
 ################################################################################
 # And now the functions corresponding to the CGI commands
 
@@ -194,12 +202,16 @@ def main():
         # Log error message with traceback and elapsed time
         logging.error("%s", error["ERROR"])
         logging.info("Elapsed: %s", str(error["time"]))
-    
+
     if incremental:
         print "}"
 
     if callback:
         print ")",
+
+    logging.info('Content-length: %d', _result_json_size)
+    logging.info('CPU-load: %s', ' '.join(str(val) for val in os.getloadavg()))
+    logging.info('CPU-times: %s', ' '.join(str(val) for val in os.times()[:4]))
 
 
 ################################################################################
@@ -3459,6 +3471,8 @@ def print_object(obj, form):
         out = json.dumps(obj, separators=(",", ":"))
         out = out[1:-1] if form.get("incremental", "").lower() == "true" else out
         print out,
+    global _result_json_size
+    _result_json_size += len(out)
 
 
 def authenticate(_=None):
