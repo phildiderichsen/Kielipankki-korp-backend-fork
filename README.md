@@ -1,2 +1,2 @@
-# Kielipankkki-korp-backend
+# Kielipankki-korp-backend
 Korp's backend
