@@ -64,8 +64,11 @@ def main():
         else:
             entitlement = tuple('')
 
-        # academic is TRUE if 'faculty' is part of affiliation.
-        academic = 'faculty' in form.get('affiliation', '').lower()
+        # academic is TRUE if 'member' is part of affiliation.
+        # OR ACA status via LBR is set
+        academic = ('member' in form.get('affiliation', '').lower() or
+                    'urn:nbn:fi:lb-2016110710' in form.get('entitlement', '')
+                    )
     else:
         username = form.get('username', '')
         password = form.get('password', '')
