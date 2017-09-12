@@ -1014,8 +1014,12 @@ def query_parse_lines(corpus, lines, attrs, shown, shown_structs,
         # ne_name) containing NBSPs. (They probably should not contain
         # them, however.) Splitting at U+0020 only should be safe,
         # since that seems to be always the separator (if I read the
-        # CWB source code correctly). (Jyrki Niemi 2017-03-06)
-        words = line.split(' ')
+        # CWB source code correctly). Stripping the line of spaces is
+        # needed, since it may have at least leading spaces if no
+        # show_struct is used. Unlike .split(), this would not work if
+        # words were separated by multiple spaces, but they should not
+        # be. (Jyrki Niemi 2017-03-06, 2017-09-12).
+        words = line.strip(' ').split(' ')
         tokens = []
         n = 0
         structs = defaultdict(list)
