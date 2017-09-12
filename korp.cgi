@@ -3534,7 +3534,10 @@ def get_protected_corpora():
         protected = [ corpus for corpus, in cursor ]
         cursor.close()
         conn.close()
-    except AttributeError:
+    except (AttributeError, MySQLdb.MySQLError, MySQLdb.InterfaceError,
+            MySQLdb.DatabaseError):
+        # Assume that no corpora are protected if trying to access the
+        # database results in an error
         pass
     return protected
 
