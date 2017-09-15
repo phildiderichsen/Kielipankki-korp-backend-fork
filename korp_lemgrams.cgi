@@ -23,11 +23,12 @@ def main():
 
     wf = form.get("wf")
     corpora = form.get("corpus")
+    limit = int(form.get("limit", 10))
     if corpora:
         corpora = corpora.split(',')
     result = {}
     try:
-        result["div"] = get_lemgrams(wf, corpora)
+        result["div"] = get_lemgrams(wf, corpora, limit)
         result["count"] = len(result["div"])
         result["time"] = time.time() - starttime
         result["s"] = repr(result)
@@ -43,7 +44,7 @@ def main():
         print_object(error, form)
 
 
-def get_lemgrams(wf, corpora):
+def get_lemgrams(wf, corpora, limit):
     conn = MySQLdb.connect(use_unicode=True,
                            charset="utf8",
                            **config.DBCONNECT)
@@ -52,7 +53,7 @@ def get_lemgrams(wf, corpora):
     conn.converter[MySQLdb.constants.FIELD_TYPE.VAR_STRING] = [
         (None, conn.string_decoder)]
     cursor = conn.cursor()
-    result = query_lemgrams(cursor, wf, corpora, limit=20)[:10]
+    result = query_lemgrams(cursor, wf, corpora, limit)[:limit]
     cursor.close()
     conn.close()
     return encode_lemgram_result(result)
@@ -62,19 +63,24 @@ def query_lemgrams(cursor, wf, corpora, limit):
     result = []
     sql = make_lemgram_query(wf, corpora, limit)
     cursor.execute(sql)
+    # Note: Checking and filtering the results returned from the
+    # database is probably not needed when using collation utf8_bin,
+    # since it is case-sensitive and does not collate "har", "hår" and
+    # "här". Using a case-insensitive collation such as
+    # utf8_swedish_ci or utf8_unicode_ci would not use the index,
+    # since the collation for the table is utf8_bin, so it would be
+    # unacceptably slow. Case-insensitive matching would probably
+    # require a separate column with preprocessed (lowercased, perhaps
+    # accents removed) lemgrams, since apparently MySQL/MariaDB does
+    # not support specifying indexes with different collations.
     modcase = (lambda w: w.lower()) if wf.islower() else (lambda w: w)
     for row in cursor:
-        # We need this check here, since a search for "hår" also
-        # returns "här" and "har". (Does it still do when we use
-        # collation utf8_bin?) We could also specify "collate
-        # 'utf8_swedish_ci'" in the SQL query but it seems to slow
-        # down the query significantly.
         if modcase(row[0].encode("utf-8")).startswith(wf):
             result.append(row[0])
     return result
 
 
-def make_lemgram_query(wf, corpora, limit=10):
+def make_lemgram_query(wf, corpora, limit):
     sql = make_lemgram_query_corpora(wf, corpora, limit)
     if corpora:
         sql += ' union ' + make_lemgram_query_corpora(wf, [], limit)
