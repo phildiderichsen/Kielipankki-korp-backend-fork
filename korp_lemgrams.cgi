@@ -2,6 +2,13 @@
 # -*- coding: utf-8 -*-
 
 
+# TODO: It might make sense to integrate this functionality into
+# korp.cgi, either to count_lemgrams or as a separate command, to
+# avoid duplicate work when first finding the lemgrams and then
+# counting them in the frontend (services.coffee: korpApp.factory
+# "lexicons"). Språkbanken use their Karp service.
+
+
 import time
 import cgi
 import json
@@ -59,10 +66,30 @@ def get_lemgrams(wf, corpora, limit):
     return encode_lemgram_result(result)
 
 
-def query_lemgrams(cursor, wf, corpora, limit):
+def query_lemgrams(cursor, wf, param_corpora, limit):
     result = []
-    sql = make_lemgram_query(wf, corpora, limit)
-    cursor.execute(sql)
+    # Also collect the results in a set to filter out duplicates
+    result_set = set()
+    modcase = (lambda w: w.lower()) if wf.islower() else (lambda w: w)
+    corpora_lists = [param_corpora]
+    if param_corpora:
+        corpora_lists.append([])
+    # Search for lemmas in the selected corpora, lemma prefixes in
+    # them, lemmas in all corpora and lemma prefixes in them, in this
+    # order, only until the limit is reached.
+    for corpora in corpora_lists:
+        for suffpatt in ['..%', '%']:
+            sql = make_lemgram_query_part(wf + suffpatt, corpora, limit)
+            # print sql
+            cursor.execute(sql)
+            retrieve_lemgrams(cursor, wf, modcase, result, result_set)
+            # print repr(result)
+            if len(result) >= limit:
+                return result
+    return result
+
+
+def retrieve_lemgrams(cursor, wf, modcase, result, result_set):
     # Note: Checking and filtering the results returned from the
     # database is probably not needed when using collation utf8_bin,
     # since it is case-sensitive and does not collate "har", "hår" and
@@ -73,23 +100,12 @@ def query_lemgrams(cursor, wf, corpora, limit):
     # require a separate column with preprocessed (lowercased, perhaps
     # accents removed) lemgrams, since apparently MySQL/MariaDB does
     # not support specifying indexes with different collations.
-    modcase = (lambda w: w.lower()) if wf.islower() else (lambda w: w)
     for row in cursor:
+        if row[0] in result_set:
+            continue
         if modcase(row[0].encode("utf-8")).startswith(wf):
             result.append(row[0])
-    return result
-
-
-def make_lemgram_query(wf, corpora, limit):
-    sql = make_lemgram_query_corpora(wf, corpora, limit)
-    if corpora:
-        sql += ' union ' + make_lemgram_query_corpora(wf, [], limit)
-    return sql + ';'
-
-
-def make_lemgram_query_corpora(wf, corpora, limit):
-    return ' union '.join([make_lemgram_query_part(wf + suffpatt, corpora, limit)
-                           for suffpatt in ['..%', '%']])
+            result_set.add(row[0])
 
 
 def make_lemgram_query_part(pattern, corpora, limit):
