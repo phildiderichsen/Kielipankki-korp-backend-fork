@@ -100,7 +100,11 @@ def make_lemgram_query_part(pattern, corpora, limit):
                if corpora else '')
             # This would be too slow:
             # + " collate 'utf8_swedish_ci'"
-            + " order by lemgram"
+            # Order the result first by descending total frequency and
+            # then by lemgram and then take the requested number of
+            # rows at the beginning.
+            + " group by lemgram"
+            + " order by sum(freq) desc, lemgram"
             + " limit " + str(limit)
             + ")")
 
