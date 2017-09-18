@@ -78,18 +78,19 @@ def query_lemgrams(cursor, wf, param_corpora, limit):
     # them, lemmas in all corpora and lemma prefixes in them, in this
     # order, only until the limit is reached.
     for corpora in corpora_lists:
-        for suffpatt in ['..%', '%']:
+        for suffpatt, is_any_prefix in [("..%", False), ("%", True)]:
             sql = make_lemgram_query_part(wf + suffpatt, corpora, limit)
             # print sql
             cursor.execute(sql)
-            retrieve_lemgrams(cursor, wf, modcase, result, result_set)
+            retrieve_lemgrams(cursor, wf, modcase, is_any_prefix,
+                              result, result_set)
             # print repr(result)
             if len(result) >= limit:
                 return result
     return result
 
 
-def retrieve_lemgrams(cursor, wf, modcase, result, result_set):
+def retrieve_lemgrams(cursor, wf, modcase, is_any_prefix, result, result_set):
     # Note: Checking and filtering the results returned from the
     # database is probably not needed when using collation utf8_bin,
     # since it is case-sensitive and does not collate "har", "hår" and
@@ -100,10 +101,18 @@ def retrieve_lemgrams(cursor, wf, modcase, result, result_set):
     # require a separate column with preprocessed (lowercased, perhaps
     # accents removed) lemgrams, since apparently MySQL/MariaDB does
     # not support specifying indexes with different collations.
+
+    # The SQL LIKE pattern lemma..% also matches lemmas in which the
+    # lemma searched for is followed by any number of full stops
+    # before the two full stops that separate the POS tag in the
+    # lemgram. We with to filter out these incorrect lemmas.
+    incorrect_lemma = wf + "..."
     for row in cursor:
         if row[0] in result_set:
             continue
-        if modcase(row[0].encode("utf-8")).startswith(wf):
+        mod_row = modcase(row[0].encode("utf-8"))
+        if (mod_row.startswith(wf)
+            and (is_any_prefix or not mod_row.startswith(incorrect_lemma))):
             result.append(row[0])
             result_set.add(row[0])
 
