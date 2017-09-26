@@ -249,10 +249,7 @@ def corpus_info(form):
     """
     assert_key("corpus", form, IS_IDENT, True)
     
-    corpora = form.get("corpus")
-    if isinstance(corpora, basestring):
-        corpora = corpora.upper().split(QUERY_DELIM)
-    corpora = uniquify_corpora(corpora)
+    corpora = get_listvalued_param(form, "corpus", preserve_order=True)
     
     use_cache = bool(not form.get("cache", "").lower() == "false" and config.CACHE_DIR)
     
@@ -364,10 +361,7 @@ def add_corpusinfo_from_database(result, corpora):
 def query_sample(form):
     import random
     
-    corpora = form.get("corpus")
-    if isinstance(corpora, basestring):
-        corpora = corpora.upper().split(QUERY_DELIM)
-    corpora = list(set(corpora))
+    corpora = get_listvalued_param(form, "corpus")
     # Randomize corpus order
     random.shuffle(corpora)
     
@@ -427,23 +421,14 @@ def query(form):
     incremental = form.get("incremental", "").lower() == "true"
     use_cache = bool(not form.get("cache", "").lower() == "false" and config.CACHE_DIR)
     
-    corpora = form.get("corpus")
-    if isinstance(corpora, basestring):
-        corpora = corpora.upper().split(QUERY_DELIM)
-    corpora = uniquify_corpora(corpora)
+    corpora = get_listvalued_param(form, "corpus", preserve_order=True)
     
     check_authentication(corpora)
 
-    shown = form.get("show", [])
-    if isinstance(shown, basestring):
-        shown = shown.split(QUERY_DELIM)
-    shown = set(shown)
+    shown = get_setvalued_param(form, "show", default=[])
     shown.add("word")
 
-    shown_structs = form.get("show_struct", [])
-    if isinstance(shown_structs, basestring):
-        shown_structs = shown_structs.split(QUERY_DELIM)
-    shown_structs = set(shown_structs)
+    shown_structs = get_setvalued_param(form, "show_struct", default=[])
     
     expand_prequeries = not form.get("expand_prequeries", "").lower() == "false"
     
@@ -1237,21 +1222,13 @@ def count(form):
     incremental = form.get("incremental", "").lower() == "true"
     use_cache = bool(not form.get("cache", "").lower() == "false" and config.CACHE_DIR)
     
-    corpora = form.get("corpus")
-    if isinstance(corpora, basestring):
-        corpora = corpora.upper().split(QUERY_DELIM)
-    corpora = set(corpora)
+    corpora = get_setvalued_param(form, "corpus")
     
     check_authentication(corpora)
     
-    groupby = form.get("groupby")
-    if isinstance(groupby, basestring):
-        groupby = groupby.split(QUERY_DELIM)
+    groupby = get_listvalued_param(form, "groupby", uniquify=False)
     
-    ignore_case = form.get("ignore_case", [])
-    if isinstance(ignore_case, basestring):
-        ignore_case = ignore_case.split(QUERY_DELIM)
-    ignore_case = set(ignore_case)
+    ignore_case = get_setvalued_param(form, "ignore_case", default=[])
     
     defaultwithin = form.get("defaultwithin", "")
     within = form.get("within", defaultwithin)
@@ -1263,13 +1240,10 @@ def count(form):
     start = int(form.get("start", 0))
     end = int(form.get("end", -1))
     
-    split = form.get("split", "")
-    if isinstance(split, basestring):
-        split = split.split(QUERY_DELIM)
+    split = get_listvalued_param(form, "split", default="", uniquify=False)
     
-    strippointer = form.get("strippointer", "")
-    if isinstance(strippointer, basestring):
-        strippointer = strippointer.split(QUERY_DELIM)
+    strippointer = get_listvalued_param(form, "strippointer", default="",
+                                        uniquify=False)
     
     # Sort numbered CQP-queries numerically
     cqp = [form.get(key).decode("utf-8") for key in sorted([k for k in form.keys() if k.startswith("cqp")], key=lambda x: int(x[3:]) if len(x) > 3 else 0)]
@@ -1478,10 +1452,7 @@ def count_time(form):
     
     incremental = form.get("incremental", "").lower() == "true"
 
-    corpora = form.get("corpus")
-    if isinstance(corpora, basestring):
-        corpora = corpora.upper().split(QUERY_DELIM)
-    corpora = set(corpora)
+    corpora = get_setvalued_param(form, "corpus")
     
     check_authentication(corpora)
     
@@ -1918,14 +1889,8 @@ def loglike(form):
     
     maxresults = int(form.get("max", 15))
     
-    set1 = form.get("set1_corpus").upper()
-    if isinstance(set1, basestring):
-        set1 = set1.split(QUERY_DELIM)
-    set1 = set(set1)
-    set2 = form.get("set2_corpus").upper()
-    if isinstance(set2, basestring):
-        set2 = set2.split(QUERY_DELIM)
-    set2 = set(set2)
+    set1 = get_setvalued_param(form, "set1_corpus")
+    set2 = get_setvalued_param(form, "set2_corpus")
     
     corpora = set1.union(set2)
     check_authentication(corpora)
@@ -1996,22 +1961,13 @@ def lemgram_count(form):
     assert_key("corpus", form, IS_IDENT)
     assert_key("count", form, r"(lemgram|prefix|suffix)")
     
-    corpora = form.get("corpus")
-    if isinstance(corpora, basestring):
-        corpora = corpora.upper().split(QUERY_DELIM)
-    corpora = set(corpora) if corpora else set()
+    corpora = get_setvalued_param(form, "corpus", default=[])
     
     check_authentication(corpora)
     
-    lemgram = form.get("lemgram")
-    if isinstance(lemgram, basestring):
-        lemgram = lemgram.split(QUERY_DELIM)
-    lemgram = set(lemgram)
+    lemgram = get_setvalued_param(form, "lemgram")
     
-    count = form.get("count", "lemgram")
-    if isinstance(count, basestring):
-        count = count.split(QUERY_DELIM)
-    count = set(count)
+    count = get_setvalued_param(form, "count", "lemgram")
        
     counts = {"lemgram": "freq",
               "prefix": "freq_prefix",
@@ -2077,10 +2033,7 @@ def timespan(form):
     assert_key("from", form, r"^(\d{8}\d{6}?|\d{4}-\d{2}-\d{2}( \d{2}:\d{2}:\d{2})?)$")
     assert_key("to", form, r"^(\d{8}\d{6}?|\d{4}-\d{2}-\d{2}( \d{2}:\d{2}:\d{2})?)$")
     
-    corpora = form.get("corpus")
-    if isinstance(corpora, basestring):
-        corpora = corpora.upper().split(QUERY_DELIM)
-    corpora = sorted(set(corpora))
+    corpora = get_listvalued_param(form, "corpus", sort=True)
     
     use_cache = bool(not form.get("cache", "").lower() == "false" and config.CACHE_DIR)
     
@@ -2401,10 +2354,7 @@ def relations(form):
     assert_key("max", form, IS_NUMBER, False)
     assert_key("incremental", form, r"(true|false)")
     
-    corpora = form.get("corpus")
-    if isinstance(corpora, basestring):
-        corpora = corpora.upper().split(QUERY_DELIM)
-    corpora = set(corpora)
+    corpora = get_setvalued_param(form, "corpus")
     
     check_authentication(corpora)
     
@@ -2619,9 +2569,7 @@ def relations_sentences(form):
     # here a separate list for storing the original order;
     # uniquify_corpora() should probably be used below where sorted()
     # is now used.
-    temp_source = form.get("source")
-    if isinstance(temp_source, basestring):
-        temp_source = temp_source.split(QUERY_DELIM)
+    temp_source = get_listvalued_param(form, "source")
     source = defaultdict(set)
     for s in temp_source:
         c, i = s.split(":")
@@ -2632,10 +2580,7 @@ def relations_sentences(form):
     start = int(form.get("start", "0"))
     end = int(form.get("end", "99"))
     shown = form.get("show", "word")
-    shown_structs = form.get("show_struct", [])
-    if isinstance(shown_structs, basestring):
-        shown_structs = shown_structs.split(QUERY_DELIM)
-    shown_structs = set(shown_structs)
+    shown_structs = get_setvalued_param(form, "show_struct", default=[])
     
     querystarttime = time.time()
 
@@ -2765,10 +2710,7 @@ def names(form):
     assert_key("max", form, IS_NUMBER, False)
     assert_key("incremental", form, r"(true|false)")
 
-    corpora = form.get("corpus")
-    if isinstance(corpora, basestring):
-        corpora = corpora.split(QUERY_DELIM)
-    corpora = set(corpora)
+    corpora = get_setvalued_param(form, "corpus")
     
     optimize = True
     
@@ -3026,9 +2968,7 @@ def names_sentences(form):
     # here a separate list for storing the original order;
     # uniquify_corpora() should probably be used below where sorted()
     # is now used.
-    temp_source = form.get("source")
-    if isinstance(temp_source, basestring):
-        temp_source = temp_source.split(QUERY_DELIM)
+    temp_source = get_listvalued_param(form, "source")
     source = defaultdict(set)
     for s in temp_source:
         c, i = s.split(":")
@@ -3039,10 +2979,7 @@ def names_sentences(form):
     start = int(form.get("start", "0"))
     end = int(form.get("end", "99"))
     shown = form.get("show", "word")
-    shown_structs = form.get("show_struct", [])
-    if isinstance(shown_structs, basestring):
-        shown_structs = shown_structs.split(QUERY_DELIM)
-    shown_structs = set(shown_structs)
+    shown_structs = get_setvalued_param(form, "show_struct", default=[])
     
     querystarttime = time.time()
 
@@ -3349,6 +3286,38 @@ def read_attributes(lines):
         (typ, name, _rest) = (line + " X").split(None, 2)
         attrs[typ[0]].append(name)
     return attrs
+
+
+def get_listvalued_param(form, param, default=None, uniquify=True,
+                         preserve_order=False, sort=False):
+    """Get a list-valued parameter param from the form, uniquifying and
+    preserving or sorting the order of elements as requested.
+    """
+    value = _get_collection_param(form, param, default)
+    if uniquify:
+        value = uniquify_corpora(value) if preserve_order else list(set(value))
+    if sort:
+        value.sort()
+    return value
+
+
+def get_setvalued_param(form, param, default=None):
+    """Get a set-valued parameter param from the form."""
+    return set(_get_collection_param(form, param, default))
+
+
+def _get_collection_param(form, param, default=None):
+    """Get a collection-valued parameter param from the form as an
+    unprocessed list. A string value with items separated with
+    QUERY_DELIM is split into a list.
+    """
+    value = form.get(param, default)
+    if isinstance(value, basestring):
+        # Convert corpus ids to upper case
+        if "corpus" in param:
+            value = value.upper()
+        value = value.split(QUERY_DELIM)
+    return value
 
 
 def uniquify_corpora(corpora):
