@@ -55,9 +55,16 @@ END_OF_LINE = "-::-EOL-::-"
 LEFT_DELIM = "---:::"
 RIGHT_DELIM = ":::---"
 
+# Allow full stop as an alternative list delimiter, since it need not
+# be percent-encoded.
+QUERY_DELIM_ALT = "."
+
 # Regular expressions for parsing CGI parameters
 IS_NUMBER = re.compile(r"^\d+$")
-IS_IDENT = re.compile(r"^[\w\-,|]+$")
+IS_IDENT = re.compile(r"^[\w\-,|"
+                      + (QUERY_DELIM_ALT or "")
+                      + (r"()" if config.ALLOW_ENCODED_LIST_PARAMS else "")
+                      + r"]+$")
 
 QUERY_DELIM = ","
 
@@ -1965,7 +1972,9 @@ def lemgram_count(form):
     
     check_authentication(corpora)
     
-    lemgram = get_setvalued_param(form, "lemgram")
+    # Lemgrams contain full stops, so a full stop cannot be used as a
+    # list delimiter, so pass empty alt_delim.
+    lemgram = get_setvalued_param(form, "lemgram", alt_delim="")
     
     count = get_setvalued_param(form, "count", "lemgram")
        
@@ -3289,11 +3298,11 @@ def read_attributes(lines):
 
 
 def get_listvalued_param(form, param, default=None, uniquify=True,
-                         preserve_order=False, sort=False):
+                         preserve_order=False, sort=False, alt_delim=None):
     """Get a list-valued parameter param from the form, uniquifying and
     preserving or sorting the order of elements as requested.
     """
-    value = _get_collection_param(form, param, default)
+    value = _get_collection_param(form, param, default, alt_delim=alt_delim)
     if uniquify:
         value = uniquify_corpora(value) if preserve_order else list(set(value))
     if sort:
@@ -3301,22 +3310,22 @@ def get_listvalued_param(form, param, default=None, uniquify=True,
     return value
 
 
-def get_setvalued_param(form, param, default=None):
+def get_setvalued_param(form, param, default=None, alt_delim=None):
     """Get a set-valued parameter param from the form."""
-    return set(_get_collection_param(form, param, default))
+    return set(_get_collection_param(form, param, default, alt_delim=alt_delim))
 
 
-def _get_collection_param(form, param, default=None):
+def _get_collection_param(form, param, default=None, alt_delim=None):
     """Get a collection-valued parameter param from the form as an
-    unprocessed list. A string value with items separated with
-    QUERY_DELIM is split into a list.
+    unprocessed list. A string value is decoded into a list, split at
+    QUERY_DELIM and alt_delim (QUERY_DELIM_ALT if None).
     """
     value = form.get(param, default)
     if isinstance(value, basestring):
         # Convert corpus ids to upper case
         if "corpus" in param:
             value = value.upper()
-        value = value.split(QUERY_DELIM)
+        value = decode_list_param(value, alt_delim=alt_delim)
     return value
 
 
@@ -3339,6 +3348,47 @@ def uniquify_list(lst):
     seen_add = seen.add
     # seen.add ony has a side-effect and returns None
     return [elem for elem in lst if elem not in seen and not seen_add(elem)]
+
+
+def decode_list_param(str_list, alt_delim=None):
+    """Decode a list-valued parameter str_list into a list of strings by
+    splitting at QUERY_DELIM (comma) and the characters in alt_delim
+    (QUERY_DELIM_ALT by default). If config.ALLOW_ENCODED_LIST_PARAMS,
+    also expand one level of common prefixes with suffixes marked with
+    parentheses: LAM_A(HLA,NTR) -> LAM_AHLA,LAM_ANTR (nesting
+    parentheses is not allowed).
+    """
+    # TODO: Decoding prefix compression applied to parallel corpora
+    # CORPUS(1|2) -> CORPUS1|CORPUS2; possibly decoding other kinds of
+    # compressions.
+    if alt_delim is None:
+        alt_delim = QUERY_DELIM_ALT
+    if alt_delim:
+        split_val = re.split(r"[" + QUERY_DELIM + alt_delim + r"]", str_list)
+    else:
+        split_val = str_list.split(QUERY_DELIM)
+    if not config.ALLOW_ENCODED_LIST_PARAMS:
+        return split_val
+    result = []
+    prefix = ""
+    for elem in split_val:
+        # print elem, prefix, result
+        mo = re.match(r"^([^()]*)([()])?(.*)$", elem)
+        pref, sep, suff = mo.groups()
+        # print prefix, repr([pref, sep, suff])
+        if sep == "(":
+            # new_prefix(suffix
+            prefix = pref
+            result.append(prefix + suff)
+        elif sep == ')':
+            # last_suffix)
+            result.append(prefix + pref)
+            prefix = ""
+        else:
+            # Neither ( nor )
+            result.append(prefix + pref)
+    # print result
+    return result
 
 
 def replace_substrings(s, mapping):

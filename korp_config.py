@@ -100,6 +100,11 @@ RESTRICTED_SENTENCES_CORPORA_FILE = "/v/corpora/restricted_sentences.txt"
 # no other order is specified)
 RESTRICTED_SENTENCES_DEFAULT_SORT = "keyword"
 
+# Allow values of list parameters to be encoded (compressed) by
+# extracting common prefixes, such as LAM_A(HLA,NTR), and possibly in
+# other ways.
+ALLOW_ENCODED_LIST_PARAMS = True
+
 import logging
 import time
 
