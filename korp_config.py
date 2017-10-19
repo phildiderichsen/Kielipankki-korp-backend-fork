@@ -105,6 +105,9 @@ RESTRICTED_SENTENCES_DEFAULT_SORT = "keyword"
 # other ways.
 ALLOW_ENCODED_LIST_PARAMS = True
 
+# Generate compact saved statistics without corpus ids as keys.
+COMPACT_SAVED_STATS = True
+
 import logging
 import time
 

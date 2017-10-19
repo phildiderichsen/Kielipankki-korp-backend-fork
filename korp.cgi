@@ -493,13 +493,21 @@ def query(form):
             saved_hits = ""
         
         if saved_hits:
+            sorted_corpora = sorted(corpora)
             if "debug" in form and not "using_cache" in result:
                 debug["using_querydata"] = True
             saved_crc32, saved_total_hits, stats_temp = saved_hits.split(";", 2)
             if saved_crc32 == checksum:
                 saved_total_hits = int(saved_total_hits)
-                for pair in stats_temp.split(";"):
-                    c, h = pair.split(":")
+                for pairnum, pair in enumerate(stats_temp.split(";")):
+                    # Support corpus statistics both with keys
+                    # ("corpus_id:hits") and hits without keys, sorted
+                    # by corpus id. (Jyrki Niemi 2017-10-02)
+                    if ":" in pair:
+                        c, h = pair.split(":")
+                    else:
+                        c = sorted_corpora[pairnum]
+                        h = pair
                     saved_statistics[c] = int(h)
         
     ns.start_local = start
@@ -632,7 +640,22 @@ def query(form):
     result["hits"] = ns.total_hits
     result["corpus_hits"] = statistics
     result["corpus_order"] = corpora
-    result["querydata"] = zlib.compress(checksum + ";" + str(ns.total_hits) + ";" + ";".join("%s:%d" % (c, h) for c, h in statistics.iteritems())).encode("base64").replace("+", "-").replace("/", "_")
+
+    # The more compact saved statistics without corpus identifiers
+    # assumes that all the corpora are listed in statistics, even
+    # those with no hits. In some cases, a more compact representation
+    # could be achieved by encoding each number separately in base 64
+    # (not just ASCII numbers encoded in Base64), using a full stop as
+    # a separator instead of the semicolon and without compression.
+    # (Jyrki Niem 2017-10-02)
+    querydata_corpora = ";".join(
+        ("%d" % (statistics[c],) for c in sorted(corpora))
+        if config.COMPACT_SAVED_STATS
+        else ("%s:%d" % (c, h) for c, h in statistics.iteritems()))
+    result["querydata"] = (
+        zlib.compress(
+            checksum + ";" + str(ns.total_hits) + ";" + querydata_corpora)
+        .encode("base64").replace("+", "-").replace("/", "_"))
     
     if use_cache:
         cachefilename = os.path.join(config.CACHE_DIR, "query_" + checksum)
