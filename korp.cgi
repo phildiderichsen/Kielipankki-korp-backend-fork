@@ -795,13 +795,22 @@ def query_corpus(form, corpus, cqp, cqpextra, shown, shown_structs, start, end, 
                 raise ValueError("Malformed value for key '%s'." % c)
             contexts[c] = dict(x.split(":") for x in contexts[c].split(","))
 
-    # For aligned corpora, use the context and within parameters of
-    # the main (first) corpus.
+    # For aligned corpora, use the context and within parameter of the
+    # combination CORPUS1|CORPUS2, or if it does not exist, that of
+    # the the main (first) corpus (CORPUS1).
     corpus1 = corpus.split("|")[0]
-    if corpus1 in contexts["leftcontext"] or corpus1 in contexts["rightcontext"]:
-        context = (contexts["leftcontext"].get(corpus1, defaultcontext), contexts["rightcontext"].get(corpus1, defaultcontext))
+    context_val = {}
+    for context_type in ["leftcontext", "rightcontext"]:
+        context_val[context_type] = (
+            contexts[context_type].get(corpus)
+            or contexts[context_type].get(corpus1)
+            or contexts["context"].get(corpus)
+            or contexts["context"].get(corpus1)
+            or defaultcontext)
+    if context_val["leftcontext"] == context_val["rightcontext"]:
+        context = (context_val["leftcontext"],)
     else:
-        context = (contexts["context"].get(corpus1, defaultcontext),)
+        context = (context_val["leftcontext"], context_val["rightcontext"])
 
     # Split the context parameters to a primary and secondary context,
     # specified as "primary/secondary". The primary context is passed
@@ -849,7 +858,7 @@ def query_corpus(form, corpus, cqp, cqpextra, shown, shown_structs, start, end, 
     if within:
         if ":" in within:
             within = dict(x.split(":") for x in within.split(","))
-            within = within.get(corpus1, defaultwithin)
+            within = within.get(corpus, within.get(corpus1, defaultwithin))
         cqpextra["within"] = within
     
     cqpextra_internal = cqpextra.copy()
