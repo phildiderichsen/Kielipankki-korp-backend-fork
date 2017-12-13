@@ -245,7 +245,9 @@ def general_info(form):
     # CQP, for example, because of missing data, so filter them out.
     # However, with a large number of corpora, filtering slows down
     # the info command, so should we enable it only if an appropriate
-    # parameter has been specified? (Jyrki Niemi 2017-12-13)
+    # parameter has been specified? Caching the results of
+    # filter_undefined_corpora helps somewhat, though. (Jyrki Niemi
+    # 2017-12-13)
     corpora, _ = filter_undefined_corpora(list(corpora), form)
     protected = []
     
@@ -360,6 +362,20 @@ def filter_undefined_corpora(corpora, form, strict=True):
     in the argument corpora. If strict, try to select each corpus in
     CQP, otherwise only check the files in the CWB registry directory.
     """
+
+    # Caching
+    use_cache = bool(not form.get("cache", "").lower() == "false"
+                     and config.CACHE_DIR)
+    if use_cache:
+        checksum = get_hash((corpora, strict))
+        cachefilename = os.path.join(config.CACHE_DIR, "corpora_" + checksum)
+        if os.path.exists(cachefilename):
+            with open(cachefilename, "r") as cachefile:
+                result = json.load(cachefile)
+                # Since this is not the result of a command, we cannot
+                # add debug information on using cache to the result.
+                return (result["defined"], result["undefined"])
+
     defined = []
     undefined = []
     if strict:
@@ -391,6 +407,14 @@ def filter_undefined_corpora(corpora, form, strict=True):
                     if corpus.lower() in registry_files]
         undefined = [corpus for corpus in corpora
                    if corpus.lower() not in registry_files]
+
+    if use_cache:
+        if not os.path.exists(cachefilename):
+            tmpfile = "%s.%s" % (cachefilename, os.getenv("UNIQUE_ID"))
+            with open(tmpfile, "w") as cachefile:
+                json.dump({"defined": defined, "undefined": undefined}, cachefile)
+            os.rename(tmpfile, cachefilename)
+
     return (defined, undefined)
 
 
