@@ -260,7 +260,7 @@ def corpus_info(form):
 
     report_undefined_corpora = (
         form.get("report_undefined_corpora", "").lower() == "true")
-    
+
     use_cache = bool(not form.get("cache", "").lower() == "false" and config.CACHE_DIR)
     
     # Caching
@@ -283,23 +283,21 @@ def corpus_info(form):
     
     cmd = []
 
-    lines, corpora, undefined_corpora = get_corpus_info(
-        corpora, form, report_undefined_corpora)
+    if report_undefined_corpora:
+        corpora, undefined_corpora = filter_undefined_corpora(corpora, form)
 
-    # # Moved to get_corpus_info
+    for corpus in corpora:
+        cmd += ["%s;" % corpus]
+        cmd += show_attributes()
+        cmd += ["info; .EOL.;"]
 
-    # for corpus in corpora:
-    #     cmd += ["%s;" % corpus]
-    #     cmd += show_attributes()
-    #     cmd += ["info; .EOL.;"]
+    cmd += ["exit;"]
 
-    # cmd += ["exit;"]
+    # call the CQP binary
+    lines = runCQP(cmd, form)
 
-    # # call the CQP binary
-    # lines = runCQP(cmd, form)
-
-    # # skip CQP version
-    # lines.next()
+    # skip CQP version
+    lines.next()
     
     for corpus in corpora:
         # read attributes
@@ -350,67 +348,42 @@ def corpus_info(form):
     return result
 
 
-def get_corpus_info(corpora, form, report_undefined_corpora):
-    """Get info for corpora. If report_undefined_corpora, report
-    unaccessible corpora instead of throwing an error. Return a triple
-    (lines generator from runCQP, defined corpora, undefined corpora).
-    """
-
-    def run_corpus_info_cmd(corpora, form, catch=False):
-        # Extracted from corpus_info
-        cmd = []
-        for corpus in corpora:
-            cmd += ["%s;" % corpus]
-            cmd += show_attributes()
-            cmd += ["info; .EOL.;"]
-        cmd += ["exit;"]
-        # call the CQP binary
-        lines = runCQP(cmd, form)
-        # runCQP is a generator function, so the exceptions it throws
-        # are seen only when accessing it.
-        try:
-            # skip CQP version
-            lines.next()
-        except CQPError as e:
-            if catch and re.match(r"Corpus ``.*?'' is undefined", str(e)):
-                return None
-            else:
-                raise
-        return lines
-
-    # First, filter out corpora without a registry file.
-    corpora, undefined_corpora = filter_undefined_corpora(corpora)
-    # Then try to get info for all the corpora, as it is faster.
-    lines = run_corpus_info_cmd(corpora, form, report_undefined_corpora)
-    if lines is not None:
-        return lines, corpora, undefined_corpora
-    else:
-        # If some corpus had problems (e.g., the registry file was
-        # found but the corpus had no data), get the info for each
-        # corpus individually. This is slow, but the data should be
-        # cached.
-        lines = []
-        defined_corpora = []
-        for corpus in corpora:
-            corpus_lines = run_corpus_info_cmd([corpus], form, True)
-            if corpus_lines is None:
-                undefined_corpora.append(corpus)
-            else:
-                lines.extend(corpus_lines)
-                defined_corpora.append(corpus)
-        return lines, defined_corpora, undefined_corpora
-
-
-def filter_undefined_corpora(corpora):
+def filter_undefined_corpora(corpora, form, strict=True):
     """Return a pair of a list of defined and a list of undefined corpora
-    in the argument corpora, based on the files in the CWB registry
-    directory.
+    in the argument corpora. If strict, try to select each corpus in
+    CQP, otherwise only check the files in the CWB registry directory.
     """
-    registry_files = set(os.listdir(config.CWB_REGISTRY))
-    defined = [
-        corpus for corpus in corpora if corpus.lower() in registry_files]
-    undefined = [
-        corpus for corpus in corpora if corpus.lower() not in registry_files]
+    defined = []
+    undefined = []
+    if strict:
+        # Stricter: detects corpora that have a registry file but
+        # whose data makes CQP regard them as undefined when trying to
+        # use them.
+        cqp = [corpus.upper() + ";" for corpus in corpora]
+        cqp += ["exit"]
+        lines = runCQP(cqp, form, errors="report")
+        for line in lines:
+            if line.startswith("CQP Error:"):
+                matchobj = re.match(
+                    r"CQP Error: Corpus ``(.*?)'' is undefined", line)
+                undefined.append(str(matchobj.group(1)))
+            else:
+                # SKip the rest
+                break
+        if undefined:
+            undefined_set = set(undefined)
+            defined = [corpus for corpus in corpora
+                        if corpus not in undefined_set]
+        else:
+            defined = corpora
+    else:
+        # It is somewhat faster but less reliable to check the
+        # registry only.
+        registry_files = set(os.listdir(config.CWB_REGISTRY))
+        defined = [corpus for corpus in corpora
+                    if corpus.lower() in registry_files]
+        undefined = [corpus for corpus in corpora
+                   if corpus.lower() not in registry_files]
     return (defined, undefined)
 
 
