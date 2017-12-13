@@ -257,11 +257,14 @@ def corpus_info(form):
     assert_key("corpus", form, IS_IDENT, True)
     
     corpora = get_listvalued_param(form, "corpus", preserve_order=True)
+
+    report_undefined_corpora = (
+        form.get("report_undefined_corpora", "").lower() == "true")
     
     use_cache = bool(not form.get("cache", "").lower() == "false" and config.CACHE_DIR)
     
     # Caching
-    checksum = get_hash((sorted(corpora),))
+    checksum = get_hash((sorted(corpora), report_undefined_corpora))
     
     if use_cache:
         cachefilename = os.path.join(config.CACHE_DIR, "info_" + checksum)
@@ -280,18 +283,23 @@ def corpus_info(form):
     
     cmd = []
 
-    for corpus in corpora:
-        cmd += ["%s;" % corpus]
-        cmd += show_attributes()
-        cmd += ["info; .EOL.;"]
+    lines, corpora, undefined_corpora = get_corpus_info(
+        corpora, form, report_undefined_corpora)
 
-    cmd += ["exit;"]
+    # # Moved to get_corpus_info
 
-    # call the CQP binary
-    lines = runCQP(cmd, form)
+    # for corpus in corpora:
+    #     cmd += ["%s;" % corpus]
+    #     cmd += show_attributes()
+    #     cmd += ["info; .EOL.;"]
 
-    # skip CQP version 
-    lines.next()
+    # cmd += ["exit;"]
+
+    # # call the CQP binary
+    # lines = runCQP(cmd, form)
+
+    # # skip CQP version
+    # lines.next()
     
     for corpus in corpora:
         # read attributes
@@ -318,6 +326,9 @@ def corpus_info(form):
     
     result["total_size"] = total_size
     result["total_sentences"] = total_sentences
+
+    if report_undefined_corpora:
+        result["undefined_corpora"] = undefined_corpora
     
     if use_cache:
         cachefilename = os.path.join(config.CACHE_DIR, "info_" + checksum)
@@ -337,6 +348,70 @@ def corpus_info(form):
         result["DEBUG"]["cmd"] = cmd
     
     return result
+
+
+def get_corpus_info(corpora, form, report_undefined_corpora):
+    """Get info for corpora. If report_undefined_corpora, report
+    unaccessible corpora instead of throwing an error. Return a triple
+    (lines generator from runCQP, defined corpora, undefined corpora).
+    """
+
+    def run_corpus_info_cmd(corpora, form, catch=False):
+        # Extracted from corpus_info
+        cmd = []
+        for corpus in corpora:
+            cmd += ["%s;" % corpus]
+            cmd += show_attributes()
+            cmd += ["info; .EOL.;"]
+        cmd += ["exit;"]
+        # call the CQP binary
+        lines = runCQP(cmd, form)
+        # runCQP is a generator function, so the exceptions it throws
+        # are seen only when accessing it.
+        try:
+            # skip CQP version
+            lines.next()
+        except CQPError as e:
+            if catch and re.match(r"Corpus ``.*?'' is undefined", str(e)):
+                return None
+            else:
+                raise
+        return lines
+
+    # First, filter out corpora without a registry file.
+    corpora, undefined_corpora = filter_undefined_corpora(corpora)
+    # Then try to get info for all the corpora, as it is faster.
+    lines = run_corpus_info_cmd(corpora, form, report_undefined_corpora)
+    if lines is not None:
+        return lines, corpora, undefined_corpora
+    else:
+        # If some corpus had problems (e.g., the registry file was
+        # found but the corpus had no data), get the info for each
+        # corpus individually. This is slow, but the data should be
+        # cached.
+        lines = []
+        defined_corpora = []
+        for corpus in corpora:
+            corpus_lines = run_corpus_info_cmd([corpus], form, True)
+            if corpus_lines is None:
+                undefined_corpora.append(corpus)
+            else:
+                lines.extend(corpus_lines)
+                defined_corpora.append(corpus)
+        return lines, defined_corpora, undefined_corpora
+
+
+def filter_undefined_corpora(corpora):
+    """Return a pair of a list of defined and a list of undefined corpora
+    in the argument corpora, based on the files in the CWB registry
+    directory.
+    """
+    registry_files = set(os.listdir(config.CWB_REGISTRY))
+    defined = [
+        corpus for corpus in corpora if corpus.lower() in registry_files]
+    undefined = [
+        corpus for corpus in corpora if corpus.lower() not in registry_files]
+    return (defined, undefined)
 
 
 def add_corpusinfo_from_database(result, corpora):
