@@ -169,6 +169,7 @@ def main():
     logging.info('User-agent: %s', cgi.os.environ.get('HTTP_USER_AGENT'))
     logging.info('Referer: %s', cgi.os.environ.get('HTTP_REFERER'))
     logging.info('Script: %s', cgi.os.environ.get('SCRIPT_NAME'))
+    logging.info('Loginfo: %s', form.get('loginfo', ''))
     logging.info('Command: %s', command)
     logging.info('Params: %s', form)
     # Log user information (Shibboleth authentication only)
