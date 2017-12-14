@@ -238,17 +238,18 @@ def info(form):
 def general_info(form):
     """Return information about the available corpora.
     """
+    strict = (form.get("strict", "").lower() != "false")
     corpora = runCQP("show corpora;", form)
     version = corpora.next()
     # CQP "show corpora" lists all corpora in the registry, but some
     # of them might nevertheless cause a "corpus undefined" error in
     # CQP, for example, because of missing data, so filter them out.
     # However, with a large number of corpora, filtering slows down
-    # the info command, so should we enable it only if an appropriate
-    # parameter has been specified? Caching the results of
-    # filter_undefined_corpora helps somewhat, though. (Jyrki Niemi
-    # 2017-12-13)
-    corpora, _ = filter_undefined_corpora(list(corpora), form)
+    # the info command, so it can be disabled with the parameter
+    # strict=false. Caching the results of filter_undefined_corpora
+    # helps, though. (Jyrki Niemi 2017-12-13)
+    if strict:
+        corpora, _ = filter_undefined_corpora(list(corpora), form)
     protected = []
     
     if config.PROTECTED_FILE:
