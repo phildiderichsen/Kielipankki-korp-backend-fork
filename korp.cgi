@@ -174,8 +174,12 @@ def main():
     # Log user information (Shibboleth authentication only)
     remote_user = cgi.os.environ.get('REMOTE_USER')
     if remote_user:
-        logging.info('Auth-domain: %s', remote_user.partition('@')[2])
-        logging.info('Auth-user: %s', md5.new(remote_user).hexdigest())
+        auth_domain = remote_user.partition('@')[2]
+        auth_user = md5.new(remote_user).hexdigest()
+    else:
+        auth_domain = auth_user = None
+    logging.info('Auth-domain: %s', auth_domain)
+    logging.info('Auth-user: %s', auth_user)
     logging.debug('Env: %s', cgi.os.environ)
 
     try:
