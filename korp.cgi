@@ -193,8 +193,6 @@ def main():
         result = globals()[command](form)
         result["time"] = time.time() - starttime
         print_object(result, form)
-        # Log elapsed time
-        logging.info("Elapsed: %s", str(result["time"]))
     except:
         import traceback
         exc = sys.exc_info()
@@ -210,9 +208,8 @@ def main():
         print_object(error, form)
         # Traceback for logging
         error["ERROR"]["traceback"] = trace
-        # Log error message with traceback and elapsed time
+        # Log error message with traceback
         logging.error("%s", error["ERROR"])
-        logging.info("Elapsed: %s", str(error["time"]))
 
     if incremental:
         print "}"
@@ -223,6 +220,8 @@ def main():
     logging.info('Content-length: %d', _result_json_size)
     logging.info('CPU-load: %s', ' '.join(str(val) for val in os.getloadavg()))
     logging.info('CPU-times: %s', ' '.join(str(val) for val in os.times()[:4]))
+    # Log elapsed time
+    logging.info("Elapsed: %s", str(time.time() - starttime))
 
 
 ################################################################################
