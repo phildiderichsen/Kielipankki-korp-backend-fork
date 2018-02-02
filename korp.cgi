@@ -24,6 +24,7 @@ import MySQLdb
 import zlib
 import urllib
 import urllib2
+import urlparse
 import base64
 import md5
 from Queue import Queue, Empty
@@ -139,6 +140,7 @@ def main():
     # Convert form fields to regular dictionary
     form_raw = cgi.FieldStorage()
     form = dict((field, form_raw.getvalue(field)) for field in form_raw.keys())
+    form = decompress_params(form)
 
     # Configure logging
     loglevel = logging.DEBUG if "debug" in form else config.LOG_LEVEL
@@ -3420,6 +3422,22 @@ def read_attributes(lines):
         (typ, name, _rest) = (line + " X").split(None, 2)
         attrs[typ[0]].append(name)
     return attrs
+
+
+def decompress_params(form):
+    """Decompress Base64-decoded zlib-compressed parameters in params_z and
+    add them to form.
+    """
+    if "params_z" not in form:
+        return form
+    query_string = zlib.decompress(
+        base64.urlsafe_b64decode(form["params_z"]))
+    params = urlparse.parse_qs(query_string)
+    for key, value in params.iteritems():
+        if len(value) == 1:
+            params[key] = value[0]
+    form.update(params)
+    return form
 
 
 def get_listvalued_param(form, param, default=None, uniquify=True,
