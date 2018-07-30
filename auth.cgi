@@ -1,4 +1,4 @@
-#! /usr/bin/python
+#!/usr/local/bin/python
 # -*- mode: Python; -*-
 
 # jpiitula@ling.helsinki.fi for making Korp authentication work in
@@ -53,6 +53,10 @@ def main():
 
     if 'remote_user' in form:
         username = form['remote_user']
+        # user comes via CLARIN IdP (is CLARIN user)?
+        clarin = username.endswith("@clarin.eu")
+        # CLARIN user has finnish email adress?
+        clarin_fi = username.endswith(".fi@clarin.eu")
         # Get the top-level-domain for checking ACA-Fi
         top_domain = username.rpartition('.')[-1]
         authenticated = True
@@ -65,10 +69,21 @@ def main():
             entitlement = tuple('')
 
         # academic is TRUE if 'member' is part of affiliation.
+        # This is NOT true for member@clarin!
         # OR ACA status via LBR is set
-        academic = ('member' in form.get('affiliation', '').lower() or
+        academic = ((not clarin and
+                     'member' in form.get('affiliation', '').lower()
+                     )
+                    or (clarin and
+                        'http://www.clarin.eu/entitlement/academic' in form.get('entitlement', '')
+                        )
+                    or
                     'urn:nbn:fi:lb-2016110710' in form.get('entitlement', '')
                     )
+        # set topdomain = fi if the user is academic and a CLARIN user with a fin. email
+        # The ACA status must have come from LBR in that case
+        if academic and clarin_fi:
+            top_domain='fi'
     else:
         username = form.get('username', '')
         password = form.get('password', '')
@@ -83,6 +98,7 @@ def main():
         if secret is not None and secret[0] == password:
             authenticated = True
 
+    logging.info('Is Academic: %s', academic)
     logging.debug('DEBUG entitlement %s',entitlement)
 
 
