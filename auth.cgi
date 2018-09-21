@@ -33,6 +33,26 @@ sys.stderr = sys.stdout
 LOG_FILE = "/v/korp/log/korp-auth.log"
 LOG_LEVEL = logging.INFO    # in non-logging version, WARNING
 
+# academic is TRUE if 'member' is part of affiliation.
+# This is NOT true for member@clarin!
+# OR ACA status via LBR is set
+def is_academic(clarin,form):
+    aca_affiliation_values = ['member', 'employee', 'student', 'faculty', 'staff']
+    affiliation = form.get('affiliation', '').lower()
+    entitlement = form.get('entitlement', '')
+
+    academic = (
+    (not clarin
+     and any(key in affiliation for key in aca_affiliation_values)
+    ) or
+    (clarin and
+     'http://www.clarin.eu/entitlement/academic' in entitlement
+    )
+    or
+    'urn:nbn:fi:lb-2016110710' in entitlement
+    )
+    return academic
+
 
 def main():
     print_header()
@@ -53,9 +73,7 @@ def main():
 
     if 'remote_user' in form:
         username = form['remote_user']
-        # user comes via CLARIN IdP (is CLARIN user)?
         clarin = username.endswith("@clarin.eu")
-        # CLARIN user has finnish email adress?
         clarin_fi = username.endswith(".fi@clarin.eu")
         # Get the top-level-domain for checking ACA-Fi
         top_domain = username.rpartition('.')[-1]
@@ -68,18 +86,8 @@ def main():
         else:
             entitlement = tuple('')
 
-        # academic is TRUE if 'member' is part of affiliation.
-        # This is NOT true for member@clarin!
-        # OR ACA status via LBR is set
-        academic = ((not clarin and
-                     'member' in form.get('affiliation', '').lower()
-                     )
-                    or (clarin and
-                        'http://www.clarin.eu/entitlement/academic' in form.get('entitlement', '')
-                        )
-                    or
-                    'urn:nbn:fi:lb-2016110710' in form.get('entitlement', '')
-                    )
+        # Determine "academic status" based on supplied attributes
+        academic = is_academic(clarin,form)
         # set topdomain = fi if the user is academic and a CLARIN user with a fin. email
         # The ACA status must have come from LBR in that case
         if academic and clarin_fi:
