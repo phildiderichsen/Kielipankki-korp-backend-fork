@@ -100,6 +100,10 @@ RESTRICTED_SENTENCES_CORPORA_FILE = "/v/corpora/restricted_sentences.txt"
 # no other order is specified)
 RESTRICTED_SENTENCES_DEFAULT_SORT = "keyword"
 
+# Structural attribute (annotation) names marking a structure as removed and
+# not to be shown to the user in query results
+REMOVED_STRUCT_NAMES = ["text__removed"]
+
 # Allow values of list parameters to be encoded (compressed) by
 # extracting common prefixes, such as LAM_A(HLA,NTR), and possibly in
 # other ways.
