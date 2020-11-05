@@ -103,6 +103,15 @@ RESTRICTED_SENTENCES_DEFAULT_SORT = "keyword"
 # Structural attribute (annotation) names marking a structure as removed and
 # not to be shown to the user in query results
 REMOVED_STRUCT_NAMES = ["text__removed"]
+# The value with which to replace positional attribute values within structures
+# marked as removed in query results, None to keep the original
+REMOVED_VALUE_POS_ATTR = "_"
+# The value with which to replace structural attribute annotation values within
+# structures marked as removed in query results, None to keep the original
+REMOVED_VALUE_STRUCT_ATTR = "removed"
+# If True, always set the match position to 0 in query results within
+# structures marked as removed
+REMOVED_HIDE_MATCH_POS = True
 
 # Allow values of list parameters to be encoded (compressed) by
 # extracting common prefixes, such as LAM_A(HLA,NTR), and possibly in

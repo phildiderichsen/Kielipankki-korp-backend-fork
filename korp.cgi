@@ -1255,21 +1255,28 @@ def query_parse_lines(corpus, lines, attrs, shown, shown_structs,
             # Otherwise we add a new kwic row
             kwic_row = {"corpus": corpus, "match": match}
             if linestructs:
-                if any(removed in linestructs
-                       for removed in config.REMOVED_STRUCT_NAMES):
-                    tokens = [dict((key, "_" if key != "structs" else val)
-                                   for key, val in token.iteritems())
-                              for token in tokens]
-                    linestructs = dict(
-                        (key,
-                         ("removed" if key not in config.REMOVED_STRUCT_NAMES
-                          else val))
-                        for key, val in linestructs.iteritems())
-                    kwic_row["match"] = {
-                        "position": 0,
-                        "start": 0,
-                        "end": 1,
-                    }
+                if (config.REMOVED_STRUCT_NAMES
+                        and any(removed in linestructs
+                                for removed in config.REMOVED_STRUCT_NAMES)):
+                    if config.REMOVED_VALUE_POS_ATTR is not None:
+                        tokens = [dict((key, (config.REMOVED_VALUE_POS_ATTR
+                                              if key != "structs" else val))
+                                       for key, val in token.iteritems())
+                                  for token in tokens]
+                    if config.REMOVED_VALUE_STRUCT_ATTR is not None:
+                        linestructs = dict(
+                            (key,
+                             (config.REMOVED_VALUE_STRUCT_ATTR
+                              if key not in config.REMOVED_STRUCT_NAMES
+                              else val))
+                            for key, val in linestructs.iteritems())
+                    if config.REMOVED_HIDE_MATCH_POS:
+                        pos = match["position"] - match["start"]
+                        kwic_row["match"] = {
+                            "position": pos,
+                            "start": 0,
+                            "end": 1,
+                        }
                 kwic_row["structs"] = linestructs
             kwic_row["tokens"] = tokens
             kwic.append(kwic_row)
@@ -1304,7 +1311,7 @@ def query_parse_lines(corpus, lines, attrs, shown, shown_structs,
 
 
 def query_and_parse(form, corpus, cqp, cqpextra, shown, shown_structs, start, end, no_results=False, expand_prequeries=True):
-    shown_structs |= set(config.REMOVED_STRUCT_NAMES)
+    shown_structs |= set(config.REMOVED_STRUCT_NAMES or [])
     lines, nr_hits, attrs, context2 = query_corpus(form, corpus, cqp, cqpextra, shown, shown_structs, start, end, no_results, expand_prequeries)
     kwic = query_parse_lines(corpus, lines, attrs, shown, shown_structs,
                              context2)
