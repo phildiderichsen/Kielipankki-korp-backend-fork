@@ -1265,11 +1265,15 @@ def query_parse_lines(corpus, lines, attrs, shown, shown_structs,
                         and any((removed in linestructs
                                  and linestructs[removed] is not None)
                                 for removed in config.REMOVED_STRUCT_NAMES)):
+                    # Replace positional attribute values with
+                    # config.REMOVED_VALUE_POS_ATTR
                     if config.REMOVED_VALUE_POS_ATTR is not None:
                         tokens = [dict((key, (config.REMOVED_VALUE_POS_ATTR
                                               if key != "structs" else val))
                                        for key, val in token.iteritems())
                                   for token in tokens]
+                    # Replace structural attribute annotation values with
+                    # config.REMOVED_VALUE_STRUCT_ATTR
                     if config.REMOVED_VALUE_STRUCT_ATTR is not None:
                         linestructs = dict(
                             (key,
@@ -1277,6 +1281,8 @@ def query_parse_lines(corpus, lines, attrs, shown, shown_structs,
                               if key not in config.REMOVED_STRUCT_NAMES
                               else val))
                             for key, val in linestructs.iteritems())
+                    # Adjust match position to the start of the sentence if
+                    # config.REMOVED_HIDE_MATCH_POS
                     if config.REMOVED_HIDE_MATCH_POS:
                         pos = match["position"] - match["start"]
                         kwic_row["match"] = {
