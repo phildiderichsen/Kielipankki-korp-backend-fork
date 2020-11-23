@@ -1255,8 +1255,15 @@ def query_parse_lines(corpus, lines, attrs, shown, shown_structs,
             # Otherwise we add a new kwic row
             kwic_row = {"corpus": corpus, "match": match}
             if linestructs:
+                # Hide (mask) results that are within structures listed in
+                # config.REMOVED_STRUCT_NAMES by replacing actual attribute
+                # values with fixed values. Note that the structure name exists
+                # in linestructs in the results from all corpora having it, so
+                # we need to check that its value is not None, which indicates
+                # that the structure is actually marked as removed.
                 if (config.REMOVED_STRUCT_NAMES
-                        and any(removed in linestructs
+                        and any((removed in linestructs
+                                 and linestructs[removed] is not None)
                                 for removed in config.REMOVED_STRUCT_NAMES)):
                     if config.REMOVED_VALUE_POS_ATTR is not None:
                         tokens = [dict((key, (config.REMOVED_VALUE_POS_ATTR
