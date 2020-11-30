@@ -47,6 +47,9 @@ DBCONNECT = {
     "charset": "utf8",
 }
 
+# Database collation for lemgram data
+DBCOLLATE_LEMGRAM = "utf8_bin"
+
 # Put PROTECTED_FILE contents, with PUB, ACA and RES, and other
 # authorization information in the database (jpiitula Dec 2013)
 AUTH_DBNAME = "korp_auth"
