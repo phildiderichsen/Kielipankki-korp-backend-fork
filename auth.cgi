@@ -1,4 +1,4 @@
-#!/usr/local/bin/python
+#! /usr/bin/env python2
 # -*- mode: Python; -*-
 
 # jpiitula@ling.helsinki.fi for making Korp authentication work in

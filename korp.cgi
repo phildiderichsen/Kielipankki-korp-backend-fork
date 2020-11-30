@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#! /usr/bin/env python2
 # -*- coding: utf-8 -*-
 """
 korp.cgi is a CGI interface for querying the corpora that are available on the server.
