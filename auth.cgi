@@ -62,9 +62,7 @@ def main():
                 for field in form_raw.keys())
     logging.info('raw form: %s', form)
 
-    conn = MySQLdb.connect(use_unicode=True,
-                           charset="utf8",
-                           **config.AUTH_DBCONNECT)
+    conn = MySQLdb.connect(**config.AUTH_DBCONNECT)
     cursor = conn.cursor()
 
     authenticated, academic = False, False

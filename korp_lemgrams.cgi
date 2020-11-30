@@ -52,9 +52,7 @@ def main():
 
 
 def get_lemgrams(wf, corpora, limit):
-    conn = MySQLdb.connect(use_unicode=True,
-                           charset="utf8",
-                           **config.DBCONNECT)
+    conn = MySQLdb.connect(**config.DBCONNECT)
     # Get Unicode objects even with collation utf8_bin; see
     # <http://stackoverflow.com/questions/9522413/mysql-python-collation-issue-how-to-force-unicode-datatype>
     conn.converter[MySQLdb.constants.FIELD_TYPE.VAR_STRING] = [

@@ -43,6 +43,8 @@ DBCONNECT = {
     "db": DBNAME,
     "user": DBUSER,
     "passwd": DBPASSWORD,
+    "use_unicode": True,
+    "charset": "utf8",
 }
 
 # Put PROTECTED_FILE contents, with PUB, ACA and RES, and other
@@ -58,6 +60,8 @@ AUTH_DBCONNECT = {
     "db": AUTH_DBNAME,
     "user": AUTH_DBUSER,
     "passwd": AUTH_DBPASSWORD,
+    "use_unicode": True,
+    "charset": "utf8",
 }
 
 # URL to authentication server
