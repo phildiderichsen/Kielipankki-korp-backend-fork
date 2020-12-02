@@ -3702,8 +3702,9 @@ def authenticate(_=None):
         auth_response = json.loads(contents)
     except urllib2.HTTPError:
         raise KorpAuthenticationError("Could not contact authentication server.")
-    except ValueError:
-        raise KorpAuthenticationError("Invalid response from authentication server.")
+    except ValueError as e:
+        raise KorpAuthenticationError("Invalid response from authentication server: "
+                                      + str(e))
     except:
         raise KorpAuthenticationError("Unexpected error during authentication.")
 
