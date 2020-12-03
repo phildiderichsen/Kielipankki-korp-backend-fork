@@ -44,11 +44,11 @@ DBCONNECT = {
     "user": DBUSER,
     "passwd": DBPASSWORD,
     "use_unicode": True,
-    "charset": "utf8",
+    "charset": "utf8mb4",
 }
 
 # Database collation for lemgram data
-DBCOLLATE_LEMGRAM = "utf8_bin"
+DBCOLLATE_LEMGRAM = "utf8mb4_bin"
 
 # Put PROTECTED_FILE contents, with PUB, ACA and RES, and other
 # authorization information in the database (jpiitula Dec 2013)
@@ -64,7 +64,7 @@ AUTH_DBCONNECT = {
     "user": AUTH_DBUSER,
     "passwd": AUTH_DBPASSWORD,
     "use_unicode": True,
-    "charset": "utf8",
+    "charset": "utf8mb4",
 }
 
 # URL to authentication server
