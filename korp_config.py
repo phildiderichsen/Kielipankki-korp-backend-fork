@@ -89,7 +89,7 @@ CACHE_MAX_STATS = 5000
 # encoded in CQP queries and decoded in query results.
 ENCODED_SPECIAL_CHARS = True
 # Special characters encoded
-SPECIAL_CHARS = u" /<>|"
+SPECIAL_CHARS = " /<>|"
 # The character for encoding the first character in SPECIAL_CHARS. The
 # characters used for encoding should not appear in the corpus as
 # such, unless a multi-character encoding prefix is defined which does
@@ -98,7 +98,7 @@ ENCODED_SPECIAL_CHAR_OFFSET = 0x7F
 # Prefix for the encoded form of special characters. Note that a
 # non-empty prefix means that a special character will not be matched
 # by a single-character pattern in CQP regular expressions.
-ENCODED_SPECIAL_CHAR_PREFIX = u""
+ENCODED_SPECIAL_CHAR_PREFIX = ""
 
 # A text file with (regexps of) names of corpora whose sentences
 # should never be displayed in corpus order, one per line
