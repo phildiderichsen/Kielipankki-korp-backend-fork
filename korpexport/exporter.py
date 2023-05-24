@@ -13,6 +13,7 @@ generate downloadable file contents.
 
 
 
+import importlib  #
 import os.path
 import time
 import pkgutil
@@ -285,13 +286,16 @@ class KorpExporter(object):
         """
         pkgpath = os.path.join(os.path.dirname(__file__),
                                self._FORMATTER_SUBPACKAGE)
+
         for _, module_name, _ in pkgutil.iter_modules([pkgpath]):
+            module_pth = self._FORMATTER_SUBPACKAGE + "." + module_name
+            module_pth = 'korpexport.' + module_pth  # TODO Temporary hack!
             try:
-                subpkg = __import__(
-                    self._FORMATTER_SUBPACKAGE + "." + module_name, globals())
+                #subpkg = __import__(module_pth, globals())  #
+                module = importlib.import_module(module_pth)
             except ImportError as e:
                 continue
-            module = getattr(subpkg, module_name)
+            #module = getattr(subpkg, module_name)  #
             for name in dir(module):
                 try:
                     module_class = getattr(module, name)
@@ -607,8 +611,9 @@ class KorpExporter(object):
             return
         korp_info_params = {'command': 'info',
                             'corpus': ','.join(corpora)}
-        korp_corpus_info_json = self._query_korp_server(korp_server_url,
-                                                        korp_info_params)
+        #korp_corpus_info_json = self._query_korp_server(korp_server_url,
+        #                                                korp_info_params)  #
+        korp_corpus_info_json = '{}'  # TODO Temporary hack: Override info from server.
         korp_corpus_info = json.loads(korp_corpus_info_json)
         for corpname, corpdata in (iter(korp_corpus_info.get("corpora", {}).items())):
             corpname = corpname.lower()
