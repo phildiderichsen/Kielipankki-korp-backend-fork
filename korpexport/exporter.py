@@ -294,6 +294,7 @@ class KorpExporter(object):
                 #subpkg = __import__(module_pth, globals())  #
                 module = importlib.import_module(module_pth)
             except ImportError as e:
+                print('ImportError:', module_pth)
                 continue
             #module = getattr(subpkg, module_name)  #
             for name in dir(module):
