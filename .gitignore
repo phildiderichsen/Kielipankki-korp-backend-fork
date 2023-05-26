@@ -9,3 +9,6 @@
 
 # Ignore Mac-specific directories
 __MACOSX
+
+# Ignore Python package info
+*.egg-info
